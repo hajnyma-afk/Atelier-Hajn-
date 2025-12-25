@@ -35,7 +35,7 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, logo }) => {
         <div className="relative">
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="w-10 h-10 flex items-center justify-center focus:outline-none z-50 relative"
+            className="w-10 h-10 flex items-center justify-end focus:outline-none z-50 relative"
             aria-label={isOpen ? "Zavřít menu" : "Otevřít menu"}
           >
             <div className="relative w-6 h-4">
