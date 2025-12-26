@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { Project, SiteContent } from '../types';
-import { Plus, Trash2, Edit2, LogOut, X, Upload, Image as ImageIcon, Crop, GripHorizontal, GripVertical, FileVideo } from 'lucide-react';
+import { Plus, Trash2, Edit2, LogOut, X, Upload, Image as ImageIcon, Crop, GripHorizontal, GripVertical, FileVideo, BarChart, Search, Tag } from 'lucide-react';
 import { Button } from './Button';
 import { savePassword } from '../services/storage';
 import { ImageCropper } from './ImageCropper';
@@ -13,7 +14,7 @@ interface AdminDashboardProps {
   onLogout: () => void;
 }
 
-type Tab = 'projects' | 'atelier' | 'contact' | 'settings' | 'home';
+type Tab = 'projects' | 'atelier' | 'contact' | 'settings' | 'home' | 'seo';
 
 const CATEGORIES = ["Bydlení", "Občanské stavby", "Veřejný prostor", "Interiéry", "Urbanismus", "Ostatní"];
 
@@ -37,6 +38,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // -- Settings State --
   const [newPassword, setNewPassword] = useState('');
   const [brandingForm, setBrandingForm] = useState(content.branding || { logo: '', favicon: '' });
+  const [analyticsForm, setAnalyticsForm] = useState(content.analytics || { googleId: '' });
+  
+  // -- SEO State --
+  const [seoForm, setSeoForm] = useState(content.seo || { title: '', keywords: '', description: '' });
+  const [newKeyword, setNewKeyword] = useState('');
 
   // -- Cropper State --
   const [cropper, setCropper] = useState<{
@@ -57,6 +63,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setContactForm(content.contact);
     setBrandingForm(content.branding || { logo: '', favicon: '' });
     setHeroForm(content.hero);
+    setAnalyticsForm(content.analytics || { googleId: '' });
+    setSeoForm(content.seo || { title: '', keywords: '', description: '' });
   }, [content]);
 
   // -- Helper: Convert File to Base64 --
@@ -282,9 +290,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         const newBranding = { ...brandingForm, logo: base64 };
         setBrandingForm(newBranding);
         onUpdateContent({
-          atelier: atelierForm,
-          contact: contactForm,
-          hero: heroForm,
+          ...content,
           branding: newBranding
         });
         e.target.value = '';
@@ -301,9 +307,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         const newBranding = { ...brandingForm, favicon: base64 };
         setBrandingForm(newBranding);
         onUpdateContent({
-          atelier: atelierForm,
-          contact: contactForm,
-          hero: heroForm,
+          ...content,
           branding: newBranding
         });
         e.target.value = '';
@@ -317,9 +321,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const newBranding = { ...brandingForm, logo: '' };
     setBrandingForm(newBranding);
     onUpdateContent({
-      atelier: atelierForm,
-      contact: contactForm,
-      hero: heroForm,
+      ...content,
       branding: newBranding
     });
   };
@@ -328,9 +330,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const newBranding = { ...brandingForm, favicon: '' };
     setBrandingForm(newBranding);
     onUpdateContent({
-      atelier: atelierForm,
-      contact: contactForm,
-      hero: heroForm,
+      ...content,
       branding: newBranding
     });
   };
@@ -355,9 +355,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       atelier: atelierForm,
       contact: contactForm,
       branding: brandingForm,
-      hero: heroForm
+      hero: heroForm,
+      analytics: analyticsForm,
+      seo: seoForm
     });
     alert('Obsah uložen');
+  };
+
+  // -- Handlers: SEO Keywords --
+  const keywordsList = seoForm.keywords ? seoForm.keywords.split(',').map(k => k.trim()).filter(k => k !== '') : [];
+
+  const addKeyword = () => {
+    const trimmed = newKeyword.trim().toLowerCase();
+    if (trimmed && !keywordsList.includes(trimmed)) {
+      const newList = [...keywordsList, trimmed];
+      setSeoForm({ ...seoForm, keywords: newList.join(', ') });
+      setNewKeyword('');
+    }
+  };
+
+  const removeKeyword = (kw: string) => {
+    const newList = keywordsList.filter(k => k !== kw);
+    setSeoForm({ ...seoForm, keywords: newList.join(', ') });
+  };
+
+  const handleKeywordKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addKeyword();
+    }
   };
 
   // -- Handlers: Settings --
@@ -424,6 +450,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             className={`px-4 py-2 text-sm uppercase tracking-widest ${activeTab === 'contact' ? 'border-b-2 border-black text-black' : 'text-gray-400 hover:text-gray-600'}`}
           >
             Kontakt
+          </button>
+          <button
+            onClick={() => setActiveTab('seo')}
+            className={`px-4 py-2 text-sm uppercase tracking-widest ${activeTab === 'seo' ? 'border-b-2 border-black text-black' : 'text-gray-400 hover:text-gray-600'}`}
+          >
+            SEO
           </button>
           <button
             onClick={() => setActiveTab('settings')}
@@ -511,11 +543,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                              <div className="flex items-center gap-2">
                                 <input 
                                   type="color" 
-                                  value={heroForm.textColor || '#ffffff'}
+                                  value={heroForm.textColor || '#000000'}
                                   onChange={(e) => setHeroForm({...heroForm, textColor: e.target.value})}
                                   className="w-8 h-8 p-0 border-0 rounded cursor-pointer"
                                 />
-                                <span className="text-xs text-gray-500 uppercase">{heroForm.textColor || '#ffffff'}</span>
+                                <span className="text-xs text-gray-500 uppercase">{heroForm.textColor || '#000000'}</span>
                              </div>
                           </div>
                        </div>
@@ -941,6 +973,85 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
            </div>
         )}
 
+        {/* --- SEO TAB --- */}
+        {activeTab === 'seo' && (
+          <div className="bg-white p-8 rounded shadow-sm border border-gray-200 space-y-8 animate-in fade-in duration-300">
+             <div className="flex items-center gap-3 mb-4">
+                <Search size={24} className="text-blue-600" />
+                <h2 className="text-xl">SEO a Optimalizace pro vyhledávače</h2>
+             </div>
+
+             <div className="max-w-2xl space-y-10">
+                {/* Custom Title */}
+                <div className="space-y-2">
+                   <label className="text-xs uppercase tracking-widest text-gray-500">Titulek stránky (Meta Title)</label>
+                   <input 
+                      type="text"
+                      className="w-full border-b border-gray-300 py-2 focus:border-black focus:outline-none"
+                      value={seoForm.title}
+                      onChange={e => setSeoForm({...seoForm, title: e.target.value})}
+                      placeholder="Např: ATELIER HAJNÝ | Špičková architektura"
+                   />
+                   <p className="text-[10px] text-gray-400 mt-1 uppercase">Doporučená délka: 50-60 znaků.</p>
+                </div>
+
+                {/* Tag-based Keywords Manager */}
+                <div className="space-y-4">
+                   <label className="text-xs uppercase tracking-widest text-gray-500 flex items-center gap-2">
+                      <Tag size={12} /> Klíčová slova (Keywords)
+                   </label>
+                   
+                   <div className="flex gap-2">
+                      <input 
+                        type="text"
+                        className="flex-1 border-b border-gray-300 py-2 focus:border-black focus:outline-none"
+                        value={newKeyword}
+                        onChange={e => setNewKeyword(e.target.value)}
+                        onKeyDown={handleKeywordKeyDown}
+                        placeholder="Přidat klíčové slovo..."
+                      />
+                      <Button variant="secondary" onClick={addKeyword}>Přidat</Button>
+                   </div>
+
+                   <div className="flex flex-wrap gap-2 mt-4 p-4 bg-gray-50 rounded border border-dashed border-gray-200 min-h-[100px] items-start">
+                      {keywordsList.map((kw, i) => (
+                        <span 
+                          key={i} 
+                          className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-gray-200 text-xs shadow-sm hover:border-black transition-colors"
+                        >
+                          {kw}
+                          <button onClick={() => removeKeyword(kw)} className="text-gray-400 hover:text-red-500 transition-colors">
+                            <X size={14} />
+                          </button>
+                        </span>
+                      ))}
+                      {keywordsList.length === 0 && (
+                        <p className="text-xs text-gray-400 italic w-full text-center mt-4">Žádná klíčová slova zatím nebyla přidána.</p>
+                      )}
+                   </div>
+                   <p className="text-[10px] text-gray-400 uppercase">Klíčová slova pomáhají vyhledávačům kategorizovat váš web.</p>
+                </div>
+
+                {/* Meta Description */}
+                <div className="space-y-2">
+                   <label className="text-xs uppercase tracking-widest text-gray-500">Popis webu (Meta Description)</label>
+                   <textarea 
+                      rows={4}
+                      className="w-full border-b border-gray-300 py-2 focus:border-black focus:outline-none resize-none"
+                      value={seoForm.description}
+                      onChange={e => setSeoForm({...seoForm, description: e.target.value})}
+                      placeholder="Krátký text, který se zobrazí ve výsledcích vyhledávání..."
+                   />
+                   <p className="text-[10px] text-gray-400 mt-1 uppercase">Ideální rozsah: 150-160 znaků.</p>
+                </div>
+
+                <div className="pt-6">
+                   <Button onClick={handleSaveContent} className="px-12">Uložit SEO nastavení</Button>
+                </div>
+             </div>
+          </div>
+        )}
+
         {/* --- SETTINGS TAB --- */}
         {activeTab === 'settings' && (
            <div className="bg-white p-8 rounded shadow-sm border border-gray-200 space-y-12">
@@ -1025,6 +1136,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
 
                 </div>
+             </div>
+
+             {/* Analytics Settings */}
+             <div className="border-t border-gray-100 pt-8 max-w-xl">
+               <h2 className="text-xl mb-6 flex items-center gap-2">
+                 <BarChart size={20} className="text-teal-600" />
+                 Analytika
+               </h2>
+               <div className="space-y-6">
+                  <div className="space-y-1">
+                     <label className="text-xs uppercase tracking-widest text-gray-500">Google Analytics Measurement ID</label>
+                     <input 
+                       type="text"
+                       className="w-full border-b border-gray-300 py-2 focus:border-black focus:outline-none" 
+                       value={analyticsForm.googleId} 
+                       onChange={e => setAnalyticsForm({...analyticsForm, googleId: e.target.value})}
+                       placeholder="G-XXXXXXXXXX"
+                     />
+                  </div>
+                  <p className="text-xs text-gray-400 leading-relaxed">
+                    Zadejte ID měření pro Google Analytics 4. ID naleznete v administraci Google Analytics v sekci Datové streamy. 
+                    ID musí začínat písmenem <strong>G-</strong>. Tracking script bude automaticky vložen do hlavičky webu.
+                  </p>
+                  <Button onClick={handleSaveContent}>Uložit nastavení analytiky</Button>
+               </div>
              </div>
 
              <div className="border-t border-gray-100 pt-8 max-w-xl">

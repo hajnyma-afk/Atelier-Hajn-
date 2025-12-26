@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Post, ViewMode, Project, SiteContent } from './types';
 import { loadPosts, savePosts, loadProjects, saveProjects, loadContent, saveContent } from './services/storage';
@@ -64,6 +65,61 @@ const App: React.FC = () => {
       link.href = faviconUrl;
     }
   }, [siteContent?.branding?.favicon]);
+
+  // SEO Meta & Title Injection
+  useEffect(() => {
+    const seo = siteContent?.seo;
+    if (seo) {
+      // 0. Update Document Title
+      if (seo.title) {
+        document.title = seo.title;
+      }
+
+      // 1. Keywords Meta
+      let kwMeta = document.querySelector('meta[name="keywords"]') as HTMLMetaElement;
+      if (!kwMeta) {
+        kwMeta = document.createElement('meta');
+        kwMeta.name = 'keywords';
+        document.head.appendChild(kwMeta);
+      }
+      kwMeta.content = seo.keywords || '';
+
+      // 2. Description Meta
+      let descMeta = document.querySelector('meta[name="description"]') as HTMLMetaElement;
+      if (!descMeta) {
+        descMeta = document.createElement('meta');
+        descMeta.name = 'description';
+        document.head.appendChild(descMeta);
+      }
+      descMeta.content = seo.description || '';
+    }
+  }, [siteContent?.seo]);
+
+  // Google Analytics Injection
+  useEffect(() => {
+    const gaId = siteContent?.analytics?.googleId;
+    if (gaId && gaId.startsWith('G-')) {
+      // Remove any existing GA tags to prevent duplication
+      const existingScript = document.querySelector(`script[src*="googletagmanager.com/gtag/js?id=${gaId}"]`);
+      if (!existingScript) {
+        // 1. Inject gtag.js script
+        const script = document.createElement('script');
+        script.async = true;
+        script.src = `https://www.googletagmanager.com/gtag/js?id=${gaId}`;
+        document.head.appendChild(script);
+
+        // 2. Initialize gtag
+        const inlineScript = document.createElement('script');
+        inlineScript.innerHTML = `
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', '${gaId}');
+        `;
+        document.head.appendChild(inlineScript);
+      }
+    }
+  }, [siteContent?.analytics?.googleId]);
 
 
   // -- Blog / Post Logic --

@@ -49,7 +49,7 @@ const DEFAULT_PROJECTS: Project[] = [
     year: '2024',
     location: 'Ostrava',
     category: 'Interiéry',
-    description: 'Interiér definovaný surovým betonem a ocelí. Otevřená dispozice umožňuje flexibilní využití prostoru pro bydlení i výstavy umění.',
+    description: 'Interiér definovaný surovým betonem a ocelí. Otevřená dispozice umožňuje flexibilní vyuostí prostoru pro bydlení i výstavy umění.',
     thumbnail: 'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?q=80&w=2940&auto=format&fit=crop',
     images: [
       'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?q=80&w=2940&auto=format&fit=crop',
@@ -94,186 +94,6 @@ const DEFAULT_PROJECTS: Project[] = [
       'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2940&auto=format&fit=crop',
       'https://images.unsplash.com/photo-1600573472592-401b489a3cdc?q=80&w=2940&auto=format&fit=crop'
     ]
-  },
-  {
-    id: '7',
-    title: 'Pavilon Umění',
-    year: '2023',
-    location: 'Vídeň',
-    category: 'Občanské stavby',
-    description: 'Monolitická betonová stavba sloužící jako galerie moderního umění. Světlo přichází pouze střešními světlíky.',
-    thumbnail: 'https://images.unsplash.com/photo-1518998053901-5348d3969105?q=80&w=2892&auto=format&fit=crop',
-    images: ['https://images.unsplash.com/photo-1518998053901-5348d3969105?q=80&w=2892&auto=format&fit=crop']
-  },
-  {
-    id: '8',
-    title: 'Dům u jezera',
-    year: '2022',
-    location: 'Lipno',
-    category: 'Bydlení',
-    description: 'Dřevostavba levitující nad hladinou jezera. Prosklená fasáda stírá hranici mezi interiérem a exteriérem.',
-    thumbnail: 'https://images.unsplash.com/photo-1475855581690-80accde3ae2b?q=80&w=2940&auto=format&fit=crop',
-    images: ['https://images.unsplash.com/photo-1475855581690-80accde3ae2b?q=80&w=2940&auto=format&fit=crop']
-  },
-  {
-    id: '9',
-    title: 'Černá Kostka',
-    year: '2024',
-    location: 'Liberec',
-    category: 'Bydlení',
-    description: 'Experimentální bydlení s fasádou z opalovaného dřeva metodou Shou Sugi Ban.',
-    thumbnail: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2940&auto=format&fit=crop',
-    images: ['https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2940&auto=format&fit=crop']
-  },
-  {
-    id: '10',
-    title: 'White Box',
-    year: '2021',
-    location: 'Berlín',
-    category: 'Interiéry',
-    description: 'Minimalistická přístavba historické vily, která slouží jako soukromá knihovna.',
-    thumbnail: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=2940&auto=format&fit=crop',
-    images: ['https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=2940&auto=format&fit=crop']
-  },
-  {
-    id: '11',
-    title: 'Lobby Tower',
-    year: '2023',
-    location: 'Londýn',
-    category: 'Interiéry',
-    description: 'Vstupní hala mrakodrapu kombinující mramor, mosaz a vertikální zahrady.',
-    thumbnail: 'https://images.unsplash.com/photo-1506146332389-18140dc7b2fb?q=80&w=2864&auto=format&fit=crop',
-    images: ['https://images.unsplash.com/photo-1506146332389-18140dc7b2fb?q=80&w=2864&auto=format&fit=crop']
-  },
-  {
-    id: '12',
-    title: 'Zenová Zahrada',
-    year: '2022',
-    location: 'Kyoto',
-    category: 'Urbanismus',
-    description: 'Návrh krajinné architektury pro soukromou rezidenci v Japonsku.',
-    thumbnail: 'https://images.unsplash.com/photo-1590486803833-1c5dc8ce4c55?q=80&w=2940&auto=format&fit=crop',
-    images: ['https://images.unsplash.com/photo-1590486803833-1c5dc8ce4c55?q=80&w=2940&auto=format&fit=crop']
-  },
-  {
-    id: '13',
-    title: 'Horský Hotel',
-    year: '2024',
-    location: 'Dolomity',
-    category: 'Občanské stavby',
-    description: 'Luxusní ubytování využívající lokální kámen a dřevo, plně energeticky soběstačné.',
-    thumbnail: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=2906&auto=format&fit=crop',
-    images: ['https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=2906&auto=format&fit=crop']
-  },
-  {
-    id: '14',
-    title: 'Betonový Úkryt',
-    year: '2021',
-    location: 'Švýcarsko',
-    category: 'Ostatní',
-    description: 'Podzemní stavba s jediným velkým oknem do údolí.',
-    thumbnail: 'https://images.unsplash.com/photo-1464146072230-91cabc968266?q=80&w=2940&auto=format&fit=crop',
-    images: ['https://images.unsplash.com/photo-1464146072230-91cabc968266?q=80&w=2940&auto=format&fit=crop']
-  },
-  {
-    id: '15',
-    title: 'Skleněný Pavilon',
-    year: '2023',
-    location: 'New York',
-    category: 'Veřejný prostor',
-    description: 'Výstavní prostor pro sochařská díla uprostřed městského parku.',
-    thumbnail: 'https://images.unsplash.com/photo-1497215842964-222b430dc0a1?q=80&w=2874&auto=format&fit=crop',
-    images: ['https://images.unsplash.com/photo-1497215842964-222b430dc0a1?q=80&w=2874&auto=format&fit=crop']
-  },
-  {
-    id: '16',
-    title: 'Apartmán Letná',
-    year: '2023',
-    location: 'Praha',
-    category: 'Interiéry',
-    description: 'Světlý byt s výhledem na park, dominovaný bílou barvou a dubovými podlahami.',
-    thumbnail: 'https://images.unsplash.com/photo-1512915922686-57c11dde9b6b?q=80&w=2940&auto=format&fit=crop',
-    images: ['https://images.unsplash.com/photo-1512915922686-57c11dde9b6b?q=80&w=2940&auto=format&fit=crop']
-  },
-  {
-    id: '17',
-    title: 'Univerzitní Knihovna',
-    year: '2022',
-    location: 'Helsinky',
-    category: 'Občanské stavby',
-    description: 'Veřejný prostor navržený pro studium i setkávání, dominovaný dřevem a přirozeným světlem.',
-    thumbnail: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=2940&auto=format&fit=crop',
-    images: ['https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=2940&auto=format&fit=crop']
-  },
-  {
-    id: '18',
-    title: 'Rezidence Park',
-    year: '2024',
-    location: 'Kodaň',
-    category: 'Urbanismus',
-    description: 'Moderní bydlení v zeleni s důrazem na komunitní život.',
-    thumbnail: 'https://images.unsplash.com/photo-1448630360428-65456885c650?q=80&w=2940&auto=format&fit=crop',
-    images: ['https://images.unsplash.com/photo-1448630360428-65456885c650?q=80&w=2940&auto=format&fit=crop']
-  },
-  {
-    id: '19',
-    title: 'Galerie Moderního Umění',
-    year: '2021',
-    location: 'Bilbao',
-    category: 'Občanské stavby',
-    description: 'Organické tvary fasády reflektují řeku a oblohu.',
-    thumbnail: 'https://images.unsplash.com/photo-1554995207-c18c203602cb?q=80&w=2940&auto=format&fit=crop',
-    images: ['https://images.unsplash.com/photo-1554995207-c18c203602cb?q=80&w=2940&auto=format&fit=crop']
-  },
-  {
-    id: '20',
-    title: 'Vinařství Pálava',
-    year: '2022',
-    location: 'Morava',
-    category: 'Občanské stavby',
-    description: 'Objekt zapuštěný do terénu vinice, využívající geotermální energii.',
-    thumbnail: 'https://images.unsplash.com/photo-1516455590571-18256e5bb9ff?q=80&w=2940&auto=format&fit=crop',
-    images: ['https://images.unsplash.com/photo-1516455590571-18256e5bb9ff?q=80&w=2940&auto=format&fit=crop']
-  },
-  {
-    id: '21',
-    title: 'Čajový Dům',
-    year: '2023',
-    location: 'Hangzhou',
-    category: 'Ostatní',
-    description: 'Místo pro klid a meditaci uprostřed čajových plantáží.',
-    thumbnail: 'https://images.unsplash.com/photo-1518098268026-4e1491a4b6cf?q=80&w=2776&auto=format&fit=crop',
-    images: ['https://images.unsplash.com/photo-1518098268026-4e1491a4b6cf?q=80&w=2776&auto=format&fit=crop']
-  },
-  {
-    id: '22',
-    title: 'Tech Campus',
-    year: '2024',
-    location: 'Varšava',
-    category: 'Urbanismus',
-    description: 'Administrativní komplex pro technologické firmy s důrazem na well-being zaměstnanců.',
-    thumbnail: 'https://images.unsplash.com/photo-1497366811353-6870744d04b2?q=80&w=2901&auto=format&fit=crop',
-    images: ['https://images.unsplash.com/photo-1497366811353-6870744d04b2?q=80&w=2901&auto=format&fit=crop']
-  },
-  {
-    id: '23',
-    title: 'Lázeňský Dům',
-    year: '2021',
-    location: 'Karlovy Vary',
-    category: 'Občanské stavby',
-    description: 'Intimní prostor pro relaxaci s výhledem na kolonádu.',
-    thumbnail: 'https://images.unsplash.com/photo-1596178065887-1198b6148b2b?q=80&w=2787&auto=format&fit=crop',
-    images: ['https://images.unsplash.com/photo-1596178065887-1198b6148b2b?q=80&w=2787&auto=format&fit=crop']
-  },
-  {
-    id: '24',
-    title: 'Loft v Továrně',
-    year: '2022',
-    location: 'Manchester',
-    category: 'Interiéry',
-    description: 'Přeměna skladu bavlny na luxusní bydlení s industriálními prvky.',
-    thumbnail: 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?q=80&w=2940&auto=format&fit=crop',
-    images: ['https://images.unsplash.com/photo-1505691938895-1758d7feb511?q=80&w=2940&auto=format&fit=crop']
   }
 ];
 
@@ -281,6 +101,14 @@ const DEFAULT_CONTENT: SiteContent = {
   branding: {
     logo: '',
     favicon: ''
+  },
+  analytics: {
+    googleId: ''
+  },
+  seo: {
+    title: 'ATELIER HAJNÝ | Moderní architektura a design',
+    keywords: 'architektura, design, minimalismus, atelier hajny, projekty vily',
+    description: 'ATELIER HAJNÝ se zaměřuje na architekturu ticha a prostoru. Věříme, že prázdnota není absencí, ale příležitostí.'
   },
   hero: {
     title: "Architektura ticha \n a prostoru",
@@ -343,7 +171,6 @@ export const loadContent = (): SiteContent => {
     const stored = localStorage.getItem(STORAGE_KEYS.CONTENT);
     if (!stored) return DEFAULT_CONTENT;
     
-    // Merge with default to ensure all fields exist (e.g. if adding new fields like branding or hero)
     const parsed = JSON.parse(stored);
     return {
       ...DEFAULT_CONTENT,
@@ -351,6 +178,14 @@ export const loadContent = (): SiteContent => {
       branding: {
         ...DEFAULT_CONTENT.branding,
         ...(parsed.branding || {})
+      },
+      analytics: {
+        ...DEFAULT_CONTENT.analytics,
+        ...(parsed.analytics || {})
+      },
+      seo: {
+        ...DEFAULT_CONTENT.seo,
+        ...(parsed.seo || {})
       },
       hero: {
         ...DEFAULT_CONTENT.hero,

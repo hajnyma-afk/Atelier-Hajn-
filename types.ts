@@ -1,3 +1,4 @@
+
 export interface Post {
   id: string;
   title: string;
@@ -22,6 +23,14 @@ export interface SiteContent {
   branding: {
     logo: string;
     favicon?: string;
+  };
+  analytics?: {
+    googleId: string;
+  };
+  seo?: {
+    title: string;
+    keywords: string;
+    description: string;
   };
   hero: {
     title: string;
