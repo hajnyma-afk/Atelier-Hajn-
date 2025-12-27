@@ -30,7 +30,19 @@ A minimalist content management system for architecture portfolios. Built with R
    npm install
    ```
 
-3. **Start the development servers:**
+3. **Set up environment variables:**
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   Edit `.env.local` and set your admin password:
+   ```bash
+   ADMIN_PASSWORD=your-secure-password-here
+   ```
+
+   **Important:** Never commit `.env.local` to version control. It's already in `.gitignore`.
+
+4. **Start the development servers:**
    ```bash
    npm run dev
    ```
@@ -41,17 +53,19 @@ A minimalist content management system for architecture portfolios. Built with R
 
    The frontend will automatically proxy API requests to the backend.
 
-4. **Access the application:**
+5. **Access the application:**
    - Open `http://localhost:3000` in your browser
    - The SQLite database (`server/data.db`) and uploads directory (`server/uploads/`) will be created automatically
 
 ## Accessing the Admin Panel
 
 1. Navigate to the footer and click on the admin/login link
-2. Enter the default password: `admin123`
+2. Enter the password you set in `ADMIN_PASSWORD` environment variable
 3. You'll be redirected to the admin dashboard
 
-**Note:** Change the default password immediately after first login (Settings → Security).
+**Note:**
+- If you didn't set `ADMIN_PASSWORD`, you'll need to set a password through the admin panel after first login (if the database is empty)
+- Change the password immediately after first login (Settings → Security) for additional security
 
 ## Adding and Editing Content
 

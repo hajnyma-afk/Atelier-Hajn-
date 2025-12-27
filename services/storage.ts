@@ -223,13 +223,13 @@ export const savePassword = async (password: string): Promise<void> => {
   }
 };
 
-export const loadPassword = async (): Promise<string> => {
+export const loadPassword = async (): Promise<string | null> => {
   try {
     const result = await apiCall('/settings/password');
-    return result?.value || 'admin123';
+    return result?.value || null;
   } catch (e) {
     console.error('Failed to load password', e);
-    return 'admin123';
+    return null;
   }
 };
 

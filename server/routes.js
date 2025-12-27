@@ -335,6 +335,10 @@ export function setupRoutes(app, db) {
   app.get('/api/settings/:key', (req, res) => {
     try {
       const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(req.params.key);
+      // For password, return null if not set (don't expose env var as fallback for security)
+      if (req.params.key === 'password' && !row) {
+        return res.json({ value: null });
+      }
       res.json({ value: row ? row.value : null });
     } catch (error) {
       console.error('Error fetching setting:', error);

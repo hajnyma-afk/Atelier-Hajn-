@@ -59,6 +59,18 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_projects_order ON projects(display_order);
   `);
 
+  // Initialize password from environment variable if it doesn't exist
+  const passwordCheck = db.prepare('SELECT value FROM settings WHERE key = ?').get('password');
+  if (!passwordCheck) {
+    const initialPassword = process.env.ADMIN_PASSWORD || process.env.INITIAL_ADMIN_PASSWORD;
+    if (initialPassword) {
+      db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('password', initialPassword);
+      console.log('Initial admin password set from environment variable');
+    } else {
+      console.warn('⚠️  WARNING: No admin password set! Set ADMIN_PASSWORD environment variable or set it via admin panel.');
+    }
+  }
+
   return db;
 }
 
