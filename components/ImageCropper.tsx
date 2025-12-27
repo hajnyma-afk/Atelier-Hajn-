@@ -93,7 +93,6 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // Math to map UI coordinates to Canvas coordinates
-      // scaleRatio maps 1px in UI to 1px in Output Canvas
       const scaleRatio = outputWidth / CROP_WIDTH;
       
       const drawX = offset.x * scaleRatio;
@@ -103,7 +102,8 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
 
       ctx.drawImage(imageRef.current, drawX, drawY, drawW, drawH);
       
-      onCrop(canvas.toDataURL('image/jpeg', 0.9));
+      // Changed to image/webp for consistent output format
+      onCrop(canvas.toDataURL('image/webp', 0.9));
     }
   };
 

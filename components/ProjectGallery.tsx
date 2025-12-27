@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Project } from '../types';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -13,8 +14,6 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
   const [currentIndex, setCurrentIndex] = useState(0);
   
   // -- Infinite Swipe State --
-  // We render 3 images: [Prev, Curr, Next]
-  // baseTranslate is the % position of the container. -100% centers the 'Curr' image.
   const [baseTranslate, setBaseTranslate] = useState(-100);
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -23,36 +22,33 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
   const touchStart = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Helper to check if a source string is a video
+  const isVideoSource = (src: string) => src.startsWith('data:video/') || src.endsWith('.mp4') || src.endsWith('.webm');
+
   // Scroll to top when project changes
   useEffect(() => {
     window.scrollTo(0, 0);
-    setCurrentIndex(0); // Reset gallery index for new project
+    setCurrentIndex(0); 
   }, [project.id]);
 
-  // Select 2 random related projects
   const relatedProjects = useMemo(() => {
-    // Filter out current project
     const others = allProjects.filter(p => p.id !== project.id);
-    // Shuffle array
     const shuffled = [...others].sort(() => 0.5 - Math.random());
-    // Return top 2
     return shuffled.slice(0, 2);
   }, [project.id, allProjects]);
 
-  // Helper to handle cyclic indexing
   const getWrappedIndex = (idx: number) => {
     const len = project.images.length;
+    if (len === 0) return 0;
     return ((idx % len) + len) % len;
   };
 
-  // Determine which images to show in the 3-slot window
   const activeSlideIndices = [
     getWrappedIndex(currentIndex - 1),
     currentIndex,
     getWrappedIndex(currentIndex + 1)
   ];
   
-  // -- Navigation Methods --
   const updateIndex = (newIndex: number) => {
       setCurrentIndex(getWrappedIndex(newIndex));
   };
@@ -60,10 +56,7 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
   const handleNext = () => updateIndex(currentIndex + 1);
   const handlePrev = () => updateIndex(currentIndex - 1);
 
-  // -- Desktop / Keyboard Logic --
-  // Instant switch for desktop (transition disabled via CSS)
   const onDesktopNext = () => {
-      // Ensure clean state
       if (timerRef.current) clearTimeout(timerRef.current);
       setEnableTransition(false);
       setBaseTranslate(-100);
@@ -87,20 +80,16 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, currentIndex]); // currentIndex dependency ensures closure captures new state
+  }, [onClose, currentIndex]);
 
-  // -- Touch Logic --
   const onTouchStart = (e: React.TouchEvent) => {
-    // Prevent dragging if only 1 image
     if (project.images.length <= 1) return;
-
-    // Prevent interaction if currently animating snap
     if (enableTransition) return;
     
     touchStart.current = e.touches[0].clientX;
     setIsDragging(true);
     setDragOffset(0);
-    setEnableTransition(false); // Disable transition for 1:1 finger tracking
+    setEnableTransition(false);
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
@@ -118,48 +107,38 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
     const threshold = 50;
     if (Math.abs(dragOffset) > threshold) {
         if (dragOffset < 0) {
-            // Swipe Left -> Next
             finishSlide('next');
         } else {
-            // Swipe Right -> Prev
             finishSlide('prev');
         }
     } else {
-        // Swipe too short -> Snap back to center
         finishSlide('stay');
     }
   };
 
   const finishSlide = (target: 'next' | 'prev' | 'stay') => {
       setEnableTransition(true);
-      
-      // Determine target position in %
       let targetTranslate = -100;
       if (target === 'next') targetTranslate = -200;
       if (target === 'prev') targetTranslate = 0;
       
       setBaseTranslate(targetTranslate);
-      setDragOffset(0); // Clear pixel offset, animate purely via %
+      setDragOffset(0);
 
       if (target !== 'stay') {
           timerRef.current = setTimeout(() => {
-              // 1. Disable transition to make the swap invisible
               setEnableTransition(false);
-              // 2. Update the content (indices)
               if (target === 'next') handleNext();
               if (target === 'prev') handlePrev();
-              // 3. Reset position to center (-100%)
               setBaseTranslate(-100);
-          }, 500); // Duration matches CSS duration-500
+          }, 500);
       } else {
-          // Just reset transition flag after animation
            timerRef.current = setTimeout(() => {
               setEnableTransition(false);
           }, 500);
       }
   };
   
-  // Cleanup timer
   useEffect(() => {
       return () => {
           if (timerRef.current) clearTimeout(timerRef.current);
@@ -168,7 +147,6 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
 
   return (
     <div className="w-full bg-white animate-in fade-in duration-300 pb-12">
-      {/* Navigation / Breadcrumb - Hidden on mobile landscape */}
       <div className="max-w-[95%] md:max-w-[75%] mx-auto px-6 py-6 landscape:hidden lg:landscape:block">
         <button 
           onClick={onClose}
@@ -180,7 +158,6 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
       </div>
 
       <div className="flex flex-col">
-        {/* Main Image Area */}
         <div 
           className="relative w-full h-[65vh] landscape:fixed landscape:inset-0 landscape:h-full landscape:z-[60] lg:h-[calc(100vh-180px)] lg:landscape:h-[calc(100vh-180px)] lg:landscape:relative lg:landscape:z-auto lg:landscape:inset-auto bg-white group touch-pan-y landscape:touch-none lg:landscape:touch-pan-y overflow-hidden"
           onTouchStart={onTouchStart}
@@ -204,15 +181,29 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
             }}
           >
              {activeSlideIndices.map((imgIndex, windowPos) => {
-                 const img = project.images[imgIndex];
+                 const src = project.images[imgIndex];
+                 if (!src) return null;
+                 const isVid = isVideoSource(src);
+
                  return (
-                    <div key={windowPos} className="w-full h-full flex-shrink-0 relative">
-                       <img 
-                        src={img} 
-                        alt={`${project.title} view`}
-                        className="w-full h-full object-contain select-none"
-                        draggable={false}
-                       />
+                    <div key={`${imgIndex}-${windowPos}`} className="w-full h-full flex-shrink-0 relative">
+                       {isVid ? (
+                         <video 
+                           src={src} 
+                           autoPlay 
+                           loop 
+                           muted 
+                           playsInline
+                           className="w-full h-full object-contain select-none bg-white"
+                         />
+                       ) : (
+                         <img 
+                          src={src} 
+                          alt={`${project.title} view`}
+                          className="w-full h-full object-contain select-none"
+                          draggable={false}
+                         />
+                       )}
                     </div>
                  );
              })}
@@ -227,13 +218,11 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
             </button>
           )}
           
-          {/* Mobile Image Counter */}
           <div className="absolute bottom-4 left-0 right-0 text-center text-xs text-gray-500 tracking-widest md:hidden">
             {String(currentIndex + 1).padStart(2, '0')} / {String(project.images.length).padStart(2, '0')}
           </div>
         </div>
 
-        {/* Text Description Area - Hidden on mobile landscape */}
         <div className="w-full bg-white py-16 px-6 landscape:hidden lg:landscape:block">
           <div className="max-w-[95%] md:max-w-[75%] mx-auto">
             <div className="flex flex-col md:flex-row md:justify-between md:items-baseline mb-8 pb-8 border-b border-gray-100">
@@ -246,14 +235,10 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
             
             <div className="prose prose-lg prose-gray max-w-none text-gray-600 leading-relaxed">
               <p>
-                {project.description || "Minimalistický přístup k prostoru definuje tento projekt. Čisté linie, přirozené světlo a upřímné materiály vytvářejí atmosféru klidu a soustředění. Každý detail byl pečlivě zvážen, aby sloužil celku bez zbytečných okras."}
-              </p>
-              <p className="mt-6">
-                Propojení interiéru s exteriérem je klíčovým motivem. Velkoformátová okna rámují výhledy do krajiny, zatímco použité materiály – beton, dřevo a sklo – stárnou do krásy a vyprávějí příběh času.
+                {project.description || "Minimalistický přístup k prostoru definuje tento projekt. Čisté linie, přirozené světlo a upřímné materiály vytvářejí atmosféru klidu a soustředění."}
               </p>
             </div>
 
-            {/* Related Projects Section */}
             {relatedProjects.length > 0 && (
               <div className="mt-24 border-t border-gray-100 pt-16">
                 <h3 className="text-sm uppercase tracking-widest text-gray-400 mb-8">Další projekty</h3>
@@ -282,7 +267,6 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
                 </div>
               </div>
             )}
-
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Project, SiteContent } from '../types';
-import { Plus, Trash2, Edit2, LogOut, X, Upload, Image as ImageIcon, Crop, GripHorizontal, GripVertical, FileVideo, BarChart, Search, Tag } from 'lucide-react';
+import { Plus, Trash2, Edit2, LogOut, X, Upload, Image as ImageIcon, Crop, GripHorizontal, GripVertical, FileVideo, BarChart, Search, Tag, Video } from 'lucide-react';
 import { Button } from './Button';
 import { savePassword } from '../services/storage';
 import { ImageCropper } from './ImageCropper';
@@ -67,15 +67,70 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setSeoForm(content.seo || { title: '', keywords: '', description: '' });
   }, [content]);
 
-  // -- Helper: Convert File to Base64 --
-  const convertFileToBase64 = (file: File): Promise<string> => {
+  /**
+   * World-class image processing:
+   * 1. Resizes image if it exceeds MAX_DIMENSION (to save localStorage space)
+   * 2. Automatically converts to .webp format for better compression
+   */
+  const processImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
+      const MAX_DIMENSION = 1920; // Max width or height for standard images
       const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          // Maintain aspect ratio while resizing
+          if (width > height) {
+            if (width > MAX_DIMENSION) {
+              height *= MAX_DIMENSION / width;
+              width = MAX_DIMENSION;
+            }
+          } else {
+            if (height > MAX_DIMENSION) {
+              width *= MAX_DIMENSION / height;
+              height = MAX_DIMENSION;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return reject('Canvas context failed');
+          
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Convert to WebP format automatically
+          resolve(canvas.toDataURL('image/webp', 0.8));
+        };
+        img.onerror = () => reject('Image load failed');
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => reject('File read failed');
       reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = error => reject(error);
     });
   };
+
+  const processVideo = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      if (file.size > 20 * 1024 * 1024) {
+        return reject("Video je příliš velké. Maximální velikost je 20MB.");
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target?.result as string);
+      reader.onerror = () => reject('File read failed');
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Helper to check if a source string is a video
+  const isVideoSource = (src: string) => src.startsWith('data:video/') || src.endsWith('.mp4') || src.endsWith('.webm');
 
   // -- Handlers: Projects --
   const handleSaveProject = (e: React.FormEvent) => {
@@ -138,20 +193,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setDraggedProjectIndex(null);
   };
 
-  // -- Handlers: Video Upload --
+  // -- Handlers: Hero Video Upload --
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.size > 20 * 1024 * 1024) { // 20MB limit for local storage safety
-        alert("Soubor je příliš velký. Maximální velikost pro lokální uložení je 20MB.");
-        return;
-      }
       try {
-        const base64 = await convertFileToBase64(file);
-        setHeroForm(prev => ({ ...prev, video: base64 }));
+        const videoData = await processVideo(e.target.files[0]);
+        setHeroForm(prev => ({ ...prev, video: videoData }));
         e.target.value = '';
       } catch (error) {
-        alert("Chyba při nahrávání videa.");
+        alert(typeof error === 'string' ? error : "Chyba při nahrávání videa.");
       }
     }
   };
@@ -164,17 +214,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       try {
-        const base64 = await convertFileToBase64(e.target.files[0]);
-        // Open Cropper immediately on upload
+        const webpData = await processImage(e.target.files[0]);
         setCropper({
           isOpen: true,
-          imageSrc: base64,
+          imageSrc: webpData,
           target: 'thumbnail',
           aspectRatio: 3 / 2
         });
         e.target.value = '';
       } catch (error) {
-        alert("Chyba při nahrávání obrázku.");
+        alert("Chyba při nahrávání a konverzi obrázku.");
       }
     }
   };
@@ -193,17 +242,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && editingProject) {
       try {
-        const newImages: string[] = [];
-        for (let i = 0; i < e.target.files.length; i++) {
-          const base64 = await convertFileToBase64(e.target.files[i]);
-          newImages.push(base64);
-        }
+        const fileList = Array.from(e.target.files) as File[];
+        const processedImages = await Promise.all(fileList.map(file => processImage(file)));
+        
         setEditingProject({ 
           ...editingProject, 
-          images: [...editingProject.images, ...newImages] 
+          images: [...editingProject.images, ...processedImages] 
         });
+        e.target.value = '';
       } catch (error) {
         alert("Chyba při nahrávání obrázků.");
+      }
+    }
+  };
+
+  const handleGalleryVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && editingProject) {
+      try {
+        const fileList = Array.from(e.target.files) as File[];
+        const processedVideos = await Promise.all(fileList.map(file => processVideo(file)));
+        
+        setEditingProject({ 
+          ...editingProject, 
+          images: [...editingProject.images, ...processedVideos] 
+        });
+        e.target.value = '';
+      } catch (error) {
+        alert(typeof error === 'string' ? error : "Chyba při nahrávání videí.");
       }
     }
   };
@@ -220,12 +285,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // -- Drag & Drop Handlers (Gallery) --
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedIndex(index);
-    // Required for Firefox
     e.dataTransfer.effectAllowed = 'move';
   };
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault(); // Necessary to allow dropping
+    e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
 
@@ -252,10 +316,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleAtelierImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       try {
-        const base64 = await convertFileToBase64(e.target.files[0]);
+        const webpData = await processImage(e.target.files[0]);
         setCropper({
           isOpen: true,
-          imageSrc: base64,
+          imageSrc: webpData,
           target: 'atelier',
           aspectRatio: 3 / 4 // 3:4 Portrait
         });
@@ -269,16 +333,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleHeroImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       try {
-        const base64 = await convertFileToBase64(e.target.files[0]);
+        const webpData = await processImage(e.target.files[0]);
         setCropper({
           isOpen: true,
-          imageSrc: base64,
+          imageSrc: webpData,
           target: 'hero',
           aspectRatio: 16 / 9
         });
          e.target.value = '';
       } catch (error) {
-        alert("Chyba při nahrávání obrázku.");
+        alert("Chyba při nahrávání obrázků.");
       }
     }
   };
@@ -286,8 +350,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       try {
-        const base64 = await convertFileToBase64(e.target.files[0]);
-        const newBranding = { ...brandingForm, logo: base64 };
+        const webpData = await processImage(e.target.files[0]);
+        const newBranding = { ...brandingForm, logo: webpData };
         setBrandingForm(newBranding);
         onUpdateContent({
           ...content,
@@ -303,8 +367,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleFaviconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       try {
-        const base64 = await convertFileToBase64(e.target.files[0]);
-        const newBranding = { ...brandingForm, favicon: base64 };
+        const webpData = await processImage(e.target.files[0]);
+        const newBranding = { ...brandingForm, favicon: webpData };
         setBrandingForm(newBranding);
         onUpdateContent({
           ...content,
@@ -404,6 +468,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     ['bottom-left', 'bottom-center', 'bottom-right']
   ];
 
+  // Common input styles for light grey background
+  const inputBaseStyle = "w-full bg-gray-50 border-b border-gray-300 px-3 py-2 focus:border-black focus:bg-white focus:outline-none transition-all";
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       {/* CROPPER MODAL */}
@@ -416,7 +483,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         />
       )}
 
-      {/* Admin Header - Stick below global header (approx 80px / 5rem) */}
+      {/* Admin Header - Stick below global header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center sticky top-20 z-20">
         <h1 className="text-lg font-medium">Administrace</h1>
         <button onClick={onLogout} className="flex items-center gap-2 text-sm text-gray-500 hover:text-red-600">
@@ -477,7 +544,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <label className="text-xs uppercase tracking-widest text-gray-500">Hlavní nadpis</label>
                       <textarea 
                         rows={2}
-                        className="w-full border-b border-gray-300 py-2 focus:border-black focus:outline-none resize-none"
+                        className={`${inputBaseStyle} resize-none`}
                         value={heroForm.title}
                         onChange={e => setHeroForm({...heroForm, title: e.target.value})}
                         placeholder="Zadejte nadpis..."
@@ -487,7 +554,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <label className="text-xs uppercase tracking-widest text-gray-500">Podnadpis</label>
                       <textarea 
                         rows={2}
-                        className="w-full border-b border-gray-300 py-2 focus:border-black focus:outline-none resize-none"
+                        className={`${inputBaseStyle} resize-none`}
                         value={heroForm.subtitle}
                         onChange={e => setHeroForm({...heroForm, subtitle: e.target.value})}
                         placeholder="Zadejte podnadpis..."
@@ -712,7 +779,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <div className="space-y-1">
                         <label className="text-xs uppercase tracking-widest text-gray-500">Název projektu</label>
                         <input 
-                          className="w-full border-b border-gray-300 py-2 focus:border-black focus:outline-none" 
+                          className={inputBaseStyle} 
                           value={editingProject.title} 
                           onChange={e => setEditingProject({...editingProject, title: e.target.value})}
                           required 
@@ -722,7 +789,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <div className="space-y-1">
                         <label className="text-xs uppercase tracking-widest text-gray-500">Kategorie</label>
                         <select
-                          className="w-full border-b border-gray-300 py-2 focus:border-black focus:outline-none bg-transparent"
+                          className={inputBaseStyle}
                           value={editingProject.category || ""}
                           onChange={e => setEditingProject({...editingProject, category: e.target.value})}
                         >
@@ -736,7 +803,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <div className="space-y-1">
                         <label className="text-xs uppercase tracking-widest text-gray-500">Lokace</label>
                         <input 
-                          className="w-full border-b border-gray-300 py-2 focus:border-black focus:outline-none" 
+                          className={inputBaseStyle} 
                           value={editingProject.location} 
                           onChange={e => setEditingProject({...editingProject, location: e.target.value})} 
                         />
@@ -744,7 +811,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <div className="space-y-1">
                         <label className="text-xs uppercase tracking-widest text-gray-500">Rok</label>
                         <input 
-                          className="w-full border-b border-gray-300 py-2 focus:border-black focus:outline-none" 
+                          className={inputBaseStyle} 
                           value={editingProject.year} 
                           onChange={e => setEditingProject({...editingProject, year: e.target.value})} 
                         />
@@ -753,7 +820,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <label className="text-xs uppercase tracking-widest text-gray-500">Popis</label>
                         <textarea 
                           rows={5}
-                          className="w-full border-b border-gray-300 py-2 focus:border-black focus:outline-none resize-none" 
+                          className={`${inputBaseStyle} resize-none`} 
                           value={editingProject.description} 
                           onChange={e => setEditingProject({...editingProject, description: e.target.value})} 
                         />
@@ -808,47 +875,71 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       {/* Gallery Upload & Reorder */}
                       <div className="space-y-2">
                         <div className="flex justify-between items-center mb-2">
-                          <label className="text-xs uppercase tracking-widest text-gray-500">Galerie</label>
-                          <label className="cursor-pointer text-xs uppercase tracking-widest text-blue-600 hover:text-black transition-colors flex items-center gap-1">
-                            <Plus size={12} /> Přidat fotky
-                            <input 
-                              type="file" 
-                              multiple 
-                              accept="image/*"
-                              onChange={handleGalleryUpload}
-                              className="hidden"
-                            />
-                          </label>
+                          <label className="text-xs uppercase tracking-widest text-gray-500">Galerie médií</label>
+                          <div className="flex gap-4">
+                            <label className="cursor-pointer text-xs uppercase tracking-widest text-blue-600 hover:text-black transition-colors flex items-center gap-1">
+                              <ImageIcon size={12} /> Přidat fotky
+                              <input 
+                                type="file" 
+                                multiple 
+                                accept="image/*"
+                                onChange={handleGalleryUpload}
+                                className="hidden"
+                              />
+                            </label>
+                            <label className="cursor-pointer text-xs uppercase tracking-widest text-teal-600 hover:text-black transition-colors flex items-center gap-1">
+                              <Video size={12} /> Přidat video
+                              <input 
+                                type="file" 
+                                multiple 
+                                accept="video/mp4,video/webm"
+                                onChange={handleGalleryVideoUpload}
+                                className="hidden"
+                              />
+                            </label>
+                          </div>
                         </div>
                         
                         <div className="grid grid-cols-3 gap-2">
-                          {editingProject.images.map((img, idx) => (
-                            <div 
-                              key={idx} 
-                              className={`relative aspect-square group bg-gray-100 rounded overflow-hidden cursor-move ${draggedIndex === idx ? 'opacity-50 ring-2 ring-blue-500' : ''}`}
-                              draggable
-                              onDragStart={(e) => handleDragStart(e, idx)}
-                              onDragOver={(e) => handleDragOver(e, idx)}
-                              onDrop={(e) => handleDrop(e, idx)}
-                            >
-                              <img src={img} alt={`Gallery ${idx}`} className="w-full h-full object-cover pointer-events-none" />
-                              
-                              <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <GripHorizontal className="text-white drop-shadow-md" size={24} />
-                              </div>
-
-                              <button
-                                type="button" 
-                                onClick={() => removeGalleryImage(idx)}
-                                className="absolute top-1 right-1 bg-white/80 p-1 rounded-full text-red-600 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white z-10"
+                          {editingProject.images.map((img, idx) => {
+                            const isVid = isVideoSource(img);
+                            return (
+                              <div 
+                                key={idx} 
+                                className={`relative aspect-square group bg-gray-100 rounded overflow-hidden cursor-move ring-inset ${draggedIndex === idx ? 'opacity-50 ring-2 ring-black bg-gray-200' : 'hover:ring-1 hover:ring-gray-300'}`}
+                                draggable
+                                onDragStart={(e) => handleDragStart(e, idx)}
+                                onDragOver={(e) => handleDragOver(e, idx)}
+                                onDrop={(e) => handleDrop(e, idx)}
                               >
-                                <X size={12} />
-                              </button>
-                            </div>
-                          ))}
+                                {isVid ? (
+                                  <div className="w-full h-full bg-black relative">
+                                    <video src={img} muted className="w-full h-full object-cover" />
+                                    <div className="absolute top-1 left-1 bg-black/50 text-white p-1 rounded">
+                                      <Video size={12} />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <img src={img} alt={`Gallery ${idx}`} className="w-full h-full object-cover pointer-events-none" />
+                                )}
+                                
+                                <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                  <GripHorizontal className="text-white drop-shadow-md" size={24} />
+                                </div>
+
+                                <button
+                                  type="button" 
+                                  onClick={() => removeGalleryImage(idx)}
+                                  className="absolute top-1 right-1 bg-white/80 p-1 rounded-full text-red-600 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white z-10"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </div>
+                            );
+                          })}
                           {editingProject.images.length === 0 && (
                             <div className="col-span-3 py-8 text-center text-gray-400 text-sm italic bg-gray-50 rounded border border-dashed border-gray-200">
-                              Žádné obrázky v galerii. Přetáhněte pro změnu pořadí.
+                              Žádné položky v galerii. Přidejte fotky nebo videa.
                             </div>
                           )}
                         </div>
@@ -875,7 +966,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <div className="space-y-1">
                      <label className="text-xs uppercase tracking-widest text-gray-500">Nadpis</label>
                      <input 
-                       className="w-full border-b border-gray-300 py-2 focus:border-black focus:outline-none" 
+                       className={inputBaseStyle} 
                        value={atelierForm.title} 
                        onChange={e => setAtelierForm({...atelierForm, title: e.target.value})} 
                      />
@@ -884,7 +975,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                      <label className="text-xs uppercase tracking-widest text-gray-500">Úvodní text</label>
                      <textarea 
                        rows={6}
-                       className="w-full border-b border-gray-300 py-2 focus:border-black focus:outline-none resize-none" 
+                       className={`${inputBaseStyle} resize-none`} 
                        value={atelierForm.intro} 
                        onChange={e => setAtelierForm({...atelierForm, intro: e.target.value})} 
                      />
@@ -892,7 +983,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <div className="space-y-1">
                      <label className="text-xs uppercase tracking-widest text-gray-500">Filosofie</label>
                      <input 
-                       className="w-full border-b border-gray-300 py-2 focus:border-black focus:outline-none" 
+                       className={inputBaseStyle} 
                        value={atelierForm.philosophy} 
                        onChange={e => setAtelierForm({...atelierForm, philosophy: e.target.value})} 
                      />
@@ -900,7 +991,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                    <div className="space-y-1">
                      <label className="text-xs uppercase tracking-widest text-gray-500">Služby (oddělené čárkou)</label>
                      <input 
-                       className="w-full border-b border-gray-300 py-2 focus:border-black focus:outline-none" 
+                       className={inputBaseStyle} 
                        value={atelierForm.services.join(', ')} 
                        onChange={e => setAtelierForm({...atelierForm, services: e.target.value.split(',').map(s => s.trim())})} 
                      />
@@ -947,7 +1038,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div className="space-y-1">
                    <label className="text-xs uppercase tracking-widest text-gray-500">Adresa</label>
                    <input 
-                     className="w-full border-b border-gray-300 py-2 focus:border-black focus:outline-none" 
+                     className={inputBaseStyle} 
                      value={contactForm.address} 
                      onChange={e => setContactForm({...contactForm, address: e.target.value})} 
                    />
@@ -955,7 +1046,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div className="space-y-1">
                    <label className="text-xs uppercase tracking-widest text-gray-500">Email</label>
                    <input 
-                     className="w-full border-b border-gray-300 py-2 focus:border-black focus:outline-none" 
+                     className={inputBaseStyle} 
                      value={contactForm.email} 
                      onChange={e => setContactForm({...contactForm, email: e.target.value})} 
                    />
@@ -963,7 +1054,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                  <div className="space-y-1">
                    <label className="text-xs uppercase tracking-widest text-gray-500">Telefon</label>
                    <input 
-                     className="w-full border-b border-gray-300 py-2 focus:border-black focus:outline-none" 
+                     className={inputBaseStyle} 
                      value={contactForm.phone} 
                      onChange={e => setContactForm({...contactForm, phone: e.target.value})} 
                    />
@@ -987,7 +1078,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                    <label className="text-xs uppercase tracking-widest text-gray-500">Titulek stránky (Meta Title)</label>
                    <input 
                       type="text"
-                      className="w-full border-b border-gray-300 py-2 focus:border-black focus:outline-none"
+                      className={inputBaseStyle}
                       value={seoForm.title}
                       onChange={e => setSeoForm({...seoForm, title: e.target.value})}
                       placeholder="Např: ATELIER HAJNÝ | Špičková architektura"
@@ -1004,7 +1095,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                    <div className="flex gap-2">
                       <input 
                         type="text"
-                        className="flex-1 border-b border-gray-300 py-2 focus:border-black focus:outline-none"
+                        className={`${inputBaseStyle} flex-1`}
                         value={newKeyword}
                         onChange={e => setNewKeyword(e.target.value)}
                         onKeyDown={handleKeywordKeyDown}
@@ -1037,7 +1128,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                    <label className="text-xs uppercase tracking-widest text-gray-500">Popis webu (Meta Description)</label>
                    <textarea 
                       rows={4}
-                      className="w-full border-b border-gray-300 py-2 focus:border-black focus:outline-none resize-none"
+                      className={`${inputBaseStyle} resize-none`}
                       value={seoForm.description}
                       onChange={e => setSeoForm({...seoForm, description: e.target.value})}
                       placeholder="Krátký text, který se zobrazí ve výsledcích vyhledávání..."
@@ -1149,7 +1240,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                      <label className="text-xs uppercase tracking-widest text-gray-500">Google Analytics Measurement ID</label>
                      <input 
                        type="text"
-                       className="w-full border-b border-gray-300 py-2 focus:border-black focus:outline-none" 
+                       className={inputBaseStyle} 
                        value={analyticsForm.googleId} 
                        onChange={e => setAnalyticsForm({...analyticsForm, googleId: e.target.value})}
                        placeholder="G-XXXXXXXXXX"
@@ -1157,7 +1248,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                   <p className="text-xs text-gray-400 leading-relaxed">
                     Zadejte ID měření pro Google Analytics 4. ID naleznete v administraci Google Analytics v sekci Datové streamy. 
-                    ID musí začínat písmenem <strong>G-</strong>. Tracking script bude automaticky vložen do hlavičky webu.
+                    ID musí začínat písmenem <strong>G-</strong>. Tracking script bude automaticky vložen do hlavičke webu.
                   </p>
                   <Button onClick={handleSaveContent}>Uložit nastavení analytiky</Button>
                </div>
@@ -1170,7 +1261,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                      <label className="text-xs uppercase tracking-widest text-gray-500">Nové heslo do administrace</label>
                      <input 
                        type="password"
-                       className="w-full border-b border-gray-300 py-2 focus:border-black focus:outline-none" 
+                       className={inputBaseStyle} 
                        value={newPassword} 
                        onChange={e => setNewPassword(e.target.value)}
                        placeholder="Zadejte nové heslo..."
