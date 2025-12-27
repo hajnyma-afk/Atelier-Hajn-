@@ -298,13 +298,33 @@ npm run preview
 
 For production deployment:
 
-1. Set `VITE_API_URL` environment variable to your production API URL
-2. Consider using cloud storage (S3, Cloudinary) instead of local filesystem
-3. Use a production database (PostgreSQL, MySQL) instead of SQLite
-4. Implement proper authentication (JWT tokens)
-5. Add rate limiting and security headers
-6. Set up SSL/HTTPS
-7. Configure environment variables securely
+1. **Set up the admin password:**
+   - Set the `ADMIN_PASSWORD` environment variable on your production server
+   - This will be used as the initial password when the database is first created
+   - **Important:** Use a strong, unique password (at least 12 characters, mix of letters, numbers, and symbols)
+   - Example:
+     ```bash
+     export ADMIN_PASSWORD="your-strong-production-password-here"
+     ```
+   - Or set it in your deployment platform's environment variable settings (Heroku, Vercel, Railway, etc.)
+   - **Never** commit the production password to version control
+
+2. Set `VITE_API_URL` environment variable to your production API URL
+
+3. Consider using cloud storage (S3, Cloudinary) instead of local filesystem
+
+4. Use a production database (PostgreSQL, MySQL) instead of SQLite
+
+5. Implement proper authentication (JWT tokens)
+
+6. Add rate limiting and security headers
+
+7. Set up SSL/HTTPS
+
+8. Configure all environment variables securely:
+   - Use your hosting platform's secure environment variable management
+   - Never expose environment variables in client-side code
+   - Rotate passwords regularly
 
 ## License
 
