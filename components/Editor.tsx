@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Post } from '../types';
-import { ArrowLeft, Sparkles, Save, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, Trash2 } from 'lucide-react';
 import { Button } from './Button';
-import { generatePostContent } from '../services/geminiService';
 
 interface EditorProps {
   post: Post;
@@ -14,9 +13,8 @@ interface EditorProps {
 export const Editor: React.FC<EditorProps> = ({ post, onSave, onDelete, onBack }) => {
   const [title, setTitle] = useState(post.title);
   const [content, setContent] = useState(post.content);
-  const [isAiLoading, setIsAiLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-resize textarea
@@ -41,42 +39,20 @@ export const Editor: React.FC<EditorProps> = ({ post, onSave, onDelete, onBack }
     }, 400);
   };
 
-  const handleAiGenerate = async () => {
-    if (!title) {
-      alert("Prosím, zadejte nejprve nadpis.");
-      return;
-    }
-
-    setIsAiLoading(true);
-    try {
-      const newText = await generatePostContent(title, content);
-      
-      // Append nicely if there is existing content
-      const separator = content ? "\n\n" : "";
-      const updatedContent = content + separator + newText;
-      
-      setContent(updatedContent);
-    } catch (error) {
-      alert("Nepodařilo se vygenerovat text. Zkontrolujte API klíč.");
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
-
   return (
     <div className="max-w-3xl mx-auto py-12 px-6 h-full flex flex-col">
       {/* Toolbar - floating sticky top (approx 80px/5rem) to clear main header */}
       <div className="flex justify-between items-center mb-12 sticky top-20 bg-white/90 backdrop-blur-sm py-4 z-10">
-        <button 
-          onClick={onBack} 
+        <button
+          onClick={onBack}
           className="text-gray-400 hover:text-black transition-colors"
           title="Zpět"
         >
           <ArrowLeft size={20} strokeWidth={1} />
         </button>
-        
+
         <div className="flex items-center gap-2">
-           <button 
+           <button
             onClick={() => onDelete(post.id)}
             className="p-2 text-gray-300 hover:text-red-600 transition-colors mr-2"
             title="Smazat"
@@ -84,18 +60,8 @@ export const Editor: React.FC<EditorProps> = ({ post, onSave, onDelete, onBack }
             <Trash2 size={18} strokeWidth={1} />
           </button>
 
-          <Button 
-            variant="ghost" 
-            onClick={handleAiGenerate} 
-            isLoading={isAiLoading}
-            title="Generovat text pomocí AI"
-          >
-            <Sparkles size={16} strokeWidth={1} />
-            <span className="hidden sm:inline">AI Autor</span>
-          </Button>
-          
-          <Button 
-            onClick={handleSave} 
+          <Button
+            onClick={handleSave}
             isLoading={isSaving}
           >
             <Save size={16} strokeWidth={1} />
@@ -113,7 +79,7 @@ export const Editor: React.FC<EditorProps> = ({ post, onSave, onDelete, onBack }
           placeholder="Nadpis příběhu..."
           className="w-full text-4xl md:text-5xl placeholder-gray-200 text-gray-900 border-none focus:ring-0 outline-none bg-transparent mb-8 leading-tight"
         />
-        
+
         <textarea
           ref={textareaRef}
           value={content}

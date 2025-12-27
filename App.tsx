@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Post, ViewMode, Project, SiteContent } from './types';
-import { loadPosts, savePosts, loadProjects, saveProjects, loadContent, saveContent } from './services/storage';
+import { loadPosts, savePosts, loadProjects, saveProjects, loadContent, saveContent, deletePost, deleteProject } from './services/storage';
 import { PostList } from './components/PostList';
 import { Editor } from './components/Editor';
 import { Header } from './components/Header';
@@ -25,7 +25,7 @@ const App: React.FC = () => {
   const [view, setView] = useState<ViewMode>('projects');
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
-  
+
   // -- Auth State --
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
@@ -34,22 +34,58 @@ const App: React.FC = () => {
 
   // Load initial data
   useEffect(() => {
-    setPosts(loadPosts());
-    setProjects(loadProjects());
-    setSiteContent(loadContent());
+    const loadData = async () => {
+      try {
+        const [loadedPosts, loadedProjects, loadedContent] = await Promise.all([
+          loadPosts(),
+          loadProjects(),
+          loadContent()
+        ]);
+        setPosts(loadedPosts);
+        setProjects(loadedProjects);
+        setSiteContent(loadedContent);
+      } catch (error) {
+        console.error('Failed to load initial data:', error);
+      }
+    };
+    loadData();
   }, []);
 
-  // Persist data when changed
+  // Persist data when changed (debounced)
   useEffect(() => {
-    if (posts.length > 0) savePosts(posts);
+    if (posts.length === 0) return;
+    const timeoutId = setTimeout(async () => {
+      try {
+        await savePosts(posts);
+      } catch (error) {
+        console.error('Failed to save posts:', error);
+      }
+    }, 500);
+    return () => clearTimeout(timeoutId);
   }, [posts]);
 
   useEffect(() => {
-    if (projects.length > 0) saveProjects(projects);
+    if (projects.length === 0) return;
+    const timeoutId = setTimeout(async () => {
+      try {
+        await saveProjects(projects);
+      } catch (error) {
+        console.error('Failed to save projects:', error);
+      }
+    }, 500);
+    return () => clearTimeout(timeoutId);
   }, [projects]);
-  
+
   useEffect(() => {
-    if (siteContent) saveContent(siteContent);
+    if (!siteContent) return;
+    const timeoutId = setTimeout(async () => {
+      try {
+        await saveContent(siteContent);
+      } catch (error) {
+        console.error('Failed to save content:', error);
+      }
+    }, 500);
+    return () => clearTimeout(timeoutId);
   }, [siteContent]);
 
   // Apply Favicon
@@ -142,15 +178,27 @@ const App: React.FC = () => {
     setView('editor');
   };
 
-  const handleUpdatePost = (updatedPost: Post) => {
+  const handleUpdatePost = async (updatedPost: Post) => {
     setPosts(posts.map(p => p.id === updatedPost.id ? updatedPost : p));
+    // Save is handled by useEffect, but we can also save immediately
+    try {
+      await savePosts(posts.map(p => p.id === updatedPost.id ? updatedPost : p));
+    } catch (error) {
+      console.error('Failed to save post:', error);
+    }
   };
 
-  const handleDeletePost = (id: string) => {
+  const handleDeletePost = async (id: string) => {
     if (window.confirm('Opravdu chcete tento příběh smazat?')) {
-      setPosts(posts.filter(p => p.id !== id));
-      setView('list');
-      setActivePostId(null);
+      try {
+        await deletePost(id);
+        setPosts(posts.filter(p => p.id !== id));
+        setView('list');
+        setActivePostId(null);
+      } catch (error) {
+        console.error('Failed to delete post:', error);
+        alert('Nepodařilo se smazat příspěvek.');
+      }
     }
   };
 
@@ -198,24 +246,24 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white text-gray-900 selection:bg-beige-600 selection:text-white flex flex-col">
-      <Header 
-        onNavigate={handleNavigate} 
+      <Header
+        onNavigate={handleNavigate}
         logo={siteContent.branding?.logo}
       />
-      
+
       <main className="flex-1 flex flex-col relative">
         {/* Projects View (Default Homepage) */}
         {view === 'projects' && (
           <>
-            <Hero 
-              onScrollDown={handleScrollToProjects} 
+            <Hero
+              onScrollDown={handleScrollToProjects}
               onContact={() => setView('contact')}
               content={siteContent.hero}
             />
             <div ref={projectsGridRef}>
-              <ProjectGrid 
-                projects={projects} 
-                onSelect={handleSelectProject} 
+              <ProjectGrid
+                projects={projects}
+                onSelect={handleSelectProject}
               />
             </div>
           </>
@@ -229,7 +277,7 @@ const App: React.FC = () => {
 
         {/* Project Gallery Overlay */}
         {view === 'gallery' && activeProject && (
-          <ProjectGallery 
+          <ProjectGallery
             project={activeProject}
             allProjects={projects}
             onSelect={handleSelectProject}
@@ -244,7 +292,7 @@ const App: React.FC = () => {
 
         {/* Admin Dashboard */}
         {view === 'admin' && isAuthenticated && (
-          <AdminDashboard 
+          <AdminDashboard
             projects={projects}
             content={siteContent}
             onUpdateProjects={setProjects}
@@ -255,16 +303,16 @@ const App: React.FC = () => {
 
         {/* Blog/CMS List View - keeping legacy functionality hidden/optional or integrated if needed */}
         {view === 'list' && (
-          <PostList 
-            posts={posts} 
-            onSelect={handleSelectPost} 
-            onCreate={handleCreatePost} 
+          <PostList
+            posts={posts}
+            onSelect={handleSelectPost}
+            onCreate={handleCreatePost}
           />
         )}
 
         {/* Blog Editor */}
         {view === 'editor' && activePost && (
-          <Editor 
+          <Editor
             post={activePost}
             onSave={handleUpdatePost}
             onDelete={handleDeletePost}
