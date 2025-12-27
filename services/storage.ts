@@ -1,6 +1,23 @@
 import { Post, Project, SiteContent } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+// In production (served from same domain), use relative URLs
+// In development, use VITE_API_URL or default to localhost
+const getApiBaseUrl = () => {
+  // If VITE_API_URL is explicitly set, use it
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+
+  // In production (when served from same server), use relative URL
+  if (import.meta.env.PROD || window.location.hostname !== 'localhost') {
+    return '/api';
+  }
+
+  // Development fallback
+  return 'http://localhost:3001/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 // Default content structure
 const DEFAULT_CONTENT: SiteContent = {

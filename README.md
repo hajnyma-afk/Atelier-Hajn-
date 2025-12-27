@@ -296,32 +296,57 @@ npm run preview
 
 ## Production Deployment
 
-For production deployment:
+### Google Cloud Platform (Cloud Run)
+
+**Quick Start:**
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed Cloud Run deployment instructions.
+
+```bash
+# 1. Set up IAM permissions (first time only)
+./setup-iam.sh your-project-id
+
+# 2. Deploy to Cloud Run
+./deploy.sh your-project-id us-central1
+
+# 3. Set admin password
+gcloud run services update atelier-hajny \
+  --region=us-central1 \
+  --set-env-vars="ADMIN_PASSWORD=your-secure-password-here"
+```
+
+**Note:**
+- If you get permission errors (403) during deployment, run `./setup-iam.sh` first to grant necessary IAM roles.
+- If you get 403 when accessing the deployed service, run `./check-access.sh` to fix public access permissions.
+
+**What's Included:**
+- Dockerfile for containerization
+- Cloud Build configuration (`cloudbuild.yaml`)
+- Automated deployment script (`deploy.sh`)
+- Complete deployment guide (`DEPLOYMENT.md`)
+
+### General Production Considerations
 
 1. **Set up the admin password:**
    - Set the `ADMIN_PASSWORD` environment variable on your production server
    - This will be used as the initial password when the database is first created
    - **Important:** Use a strong, unique password (at least 12 characters, mix of letters, numbers, and symbols)
-   - Example:
-     ```bash
-     export ADMIN_PASSWORD="your-strong-production-password-here"
-     ```
-   - Or set it in your deployment platform's environment variable settings (Heroku, Vercel, Railway, etc.)
    - **Never** commit the production password to version control
 
-2. Set `VITE_API_URL` environment variable to your production API URL
+2. Set `VITE_API_URL` environment variable to your production API URL (if needed)
 
-3. Consider using cloud storage (S3, Cloudinary) instead of local filesystem
+3. **Data Persistence:**
+   - **For Cloud Run**: Use Cloud Storage for files and Cloud SQL for database (see DEPLOYMENT.md)
+   - **For other platforms**: Consider using cloud storage (S3, Cloudinary) instead of local filesystem
+   - Use a production database (PostgreSQL, MySQL) instead of SQLite for persistence
 
-4. Use a production database (PostgreSQL, MySQL) instead of SQLite
+4. Implement proper authentication (JWT tokens) for enhanced security
 
-5. Implement proper authentication (JWT tokens)
+5. Add rate limiting and security headers
 
-6. Add rate limiting and security headers
+6. Set up SSL/HTTPS (automatic with Cloud Run)
 
-7. Set up SSL/HTTPS
-
-8. Configure all environment variables securely:
+7. Configure all environment variables securely:
    - Use your hosting platform's secure environment variable management
    - Never expose environment variables in client-side code
    - Rotate passwords regularly
