@@ -302,3 +302,23 @@ export const uploadMultipleFiles = async (files: File[]): Promise<string[]> => {
     throw e;
   }
 };
+
+export const submitContactForm = async (name: string, email: string, message: string): Promise<void> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/contact`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name, email, message }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `Failed to send message: ${response.statusText}`);
+    }
+  } catch (e) {
+    console.error('Failed to submit contact form', e);
+    throw e;
+  }
+};

@@ -169,7 +169,7 @@ if [ -n "$SERVICE_URL" ]; then
         local var_value
 
         # List of variables we want to read
-        local vars=("ADMIN_PASSWORD" "GCP_PROJECT_ID" "GOOGLE_CLOUD_PROJECT" "FTP_HOST" "FTP_USER" "FTP_PASSWORD" "FTP_PORT" "FTP_SECURE" "FTP_BASE_PATH" "FTP_BASE_URL")
+        local vars=("ADMIN_PASSWORD" "GCP_PROJECT_ID" "GOOGLE_CLOUD_PROJECT" "SMTP_HOST" "SMTP_PORT" "SMTP_SECURE" "SMTP_USER" "SMTP_PASSWORD" "SMTP_FROM" "CONTACT_EMAIL" "FTP_HOST" "FTP_USER" "FTP_PASSWORD" "FTP_PORT" "FTP_SECURE" "FTP_BASE_PATH" "FTP_BASE_URL")
 
         # Read .env.local line by line
         while IFS= read -r line || [ -n "$line" ]; do
@@ -211,7 +211,7 @@ if [ -n "$SERVICE_URL" ]; then
 
       if [ -z "$ENV_VARS" ]; then
         echo "⚠️  WARNING: No relevant environment variables found in .env.local"
-        echo "   Make sure your .env.local contains ADMIN_PASSWORD, GCP_PROJECT_ID, and FTP_* variables"
+        echo "   Make sure your .env.local contains ADMIN_PASSWORD, GCP_PROJECT_ID, SMTP_*, and FTP_* variables"
         echo ""
         USE_ENV_FILE=false
       else
@@ -239,16 +239,16 @@ if [ -n "$SERVICE_URL" ]; then
 
   # Show manual instructions if not using env file or if automatic setup failed
   if [ "$USE_ENV_FILE" = false ]; then
-    echo "⚠️  IMPORTANT: Set up environment variables for Firestore, FTP, and admin password:"
+    echo "⚠️  IMPORTANT: Set up environment variables for Firestore, Email (SMTP), FTP, and admin password:"
     echo ""
     echo "gcloud run services update atelier-hajny \\"
     echo "  --region=$REGION \\"
-    echo "  --update-env-vars=\"ADMIN_PASSWORD=your-secure-password-here,GCP_PROJECT_ID=your-project-id,FTP_HOST=ftp.yourdomain.com,FTP_USER=your_ftp_user,FTP_PASSWORD=your_ftp_password,FTP_PORT=21,FTP_SECURE=false,FTP_BASE_PATH=/public_html/uploads,FTP_BASE_URL=https://yourdomain.com/uploads\""
+    echo "  --update-env-vars=\"ADMIN_PASSWORD=your-secure-password-here,GCP_PROJECT_ID=your-project-id,SMTP_HOST=smtp.gmail.com,SMTP_PORT=587,SMTP_SECURE=false,SMTP_USER=your-email@gmail.com,SMTP_PASSWORD=your-app-password,SMTP_FROM=your-email@gmail.com,CONTACT_EMAIL=your-email@gmail.com,FTP_HOST=ftp.yourdomain.com,FTP_USER=your_ftp_user,FTP_PASSWORD=your_ftp_password,FTP_PORT=21,FTP_SECURE=false,FTP_BASE_PATH=/public_html/uploads,FTP_BASE_URL=https://yourdomain.com/uploads\""
     echo ""
     echo "Or use --use-env-file flag to read from .env.local:"
     echo "  ./deploy.sh $PROJECT_ID $REGION --use-env-file"
     echo ""
-    echo "See README.md, FIRESTORE_SETUP.md, or FTP_SETUP.md for detailed configuration instructions."
+    echo "See README.md, FIRESTORE_SETUP.md, EMAIL_SETUP.md, or FTP_SETUP.md for detailed configuration instructions."
   fi
 else
   echo "Check Cloud Run console for the URL"

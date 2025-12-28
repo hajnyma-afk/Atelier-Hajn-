@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import multer from 'multer';
 import { uploadToFtp, deleteFromFtp, downloadFromFtp, isFtpConfigured } from './ftpService.js';
 import { generateFileName, getFileUrl } from './utils.js';
+import { sendContactEmail, isEmailConfigured } from './emailService.js';
 
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
@@ -446,6 +447,35 @@ export function setupRoutes(app, db) {
     } catch (error) {
       console.error('Error saving setting:', error);
       res.status(500).json({ error: 'Failed to save setting' });
+    }
+  });
+
+  // ========== CONTACT FORM ==========
+
+  app.post('/api/contact', async (req, res) => {
+    try {
+      const { name, email, message } = req.body;
+
+      // Validate input
+      if (!name || !email || !message) {
+        return res.status(400).json({ error: 'Name, email, and message are required' });
+      }
+
+      // Basic email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ error: 'Invalid email address' });
+      }
+
+      if (!isEmailConfigured()) {
+        return res.status(500).json({ error: 'Email service not configured' });
+      }
+
+      await sendContactEmail(name.trim(), email.trim(), message.trim());
+      res.json({ success: true, message: 'Email sent successfully' });
+    } catch (error) {
+      console.error('Error sending contact email:', error);
+      res.status(500).json({ error: `Failed to send email: ${error.message}` });
     }
   });
 }

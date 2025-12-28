@@ -62,6 +62,7 @@ A minimalist content management system for architecture portfolios. Built with R
 
    See [FIRESTORE_SETUP.md](./FIRESTORE_SETUP.md) for Firestore setup instructions.
    See [FTP_SETUP.md](./FTP_SETUP.md) for detailed FTP configuration instructions.
+   See [EMAIL_SETUP.md](./EMAIL_SETUP.md) for email service configuration (contact form).
 
 4. **Start the development servers:**
    ```bash
