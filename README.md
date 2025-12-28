@@ -1,6 +1,6 @@
 # ATELIER HAJNÝ - Portfolio CMS
 
-A minimalist content management system for architecture portfolios. Built with React, TypeScript, Express, and SQLite.
+A minimalist content management system for architecture portfolios. Built with React, TypeScript, Express, and Google Cloud Firestore.
 
 ## Features
 
@@ -8,6 +8,7 @@ A minimalist content management system for architecture portfolios. Built with R
 - **Content Management**: Edit hero section, about page, and contact information
 - **Blog Posts**: Create and manage blog posts
 - **Image Optimization**: Automatic image resizing and WebP conversion
+- **FTP Storage**: Files stored on FTP server with proxy endpoint for CORS-free access
 - **SEO Settings**: Configure meta tags, keywords, and descriptions
 - **Google Analytics**: Integrated Google Analytics 4 support
 - **Responsive Design**: Mobile-first, minimalist interface
@@ -35,12 +36,32 @@ A minimalist content management system for architecture portfolios. Built with R
    cp .env.example .env.local
    ```
 
-   Edit `.env.local` and set your admin password:
+   Edit `.env.local` and configure:
    ```bash
+   # Admin password (required)
    ADMIN_PASSWORD=your-secure-password-here
+
+   # Google Cloud Project ID (required for Firestore)
+   GCP_PROJECT_ID=your-project-id
+   # or use GOOGLE_CLOUD_PROJECT instead
+
+   # For local development with service account key file (optional):
+   # GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account-key.json
+
+   # FTP configuration (required for file uploads)
+   FTP_HOST=ftp.yourdomain.com
+   FTP_USER=your_ftp_username
+   FTP_PASSWORD=your_ftp_password
+   FTP_PORT=21
+   FTP_SECURE=false
+   FTP_BASE_PATH=/public_html/uploads
+   FTP_BASE_URL=https://yourdomain.com/uploads
    ```
 
    **Important:** Never commit `.env.local` to version control. It's already in `.gitignore`.
+
+   See [FIRESTORE_SETUP.md](./FIRESTORE_SETUP.md) for Firestore setup instructions.
+   See [FTP_SETUP.md](./FTP_SETUP.md) for detailed FTP configuration instructions.
 
 4. **Start the development servers:**
    ```bash
@@ -53,9 +74,13 @@ A minimalist content management system for architecture portfolios. Built with R
 
    The frontend will automatically proxy API requests to the backend.
 
-5. **Access the application:**
+5. **Set up Firestore database:**
+   - Follow the instructions in [FIRESTORE_SETUP.md](./FIRESTORE_SETUP.md)
+   - Ensure `GCP_PROJECT_ID` is set in `.env.local`
+
+6. **Access the application:**
    - Open `http://localhost:3000` in your browser
-   - The SQLite database (`server/data.db`) and uploads directory (`server/uploads/`) will be created automatically
+   - Firestore collections will be created automatically on first use
 
 ## Accessing the Admin Panel
 
@@ -206,11 +231,10 @@ Atelier-Hajn-/
 │   └── ...
 ├── server/             # Backend server
 │   ├── index.js        # Express server entry point
-│   ├── db.js           # SQLite database setup
+│   ├── db.js           # Firestore database setup
 │   ├── routes.js        # API routes
 │   ├── utils.js         # Utility functions
-│   ├── data.db          # SQLite database (created automatically)
-│   └── uploads/         # Uploaded files (created automatically)
+│   └── ftpService.js    # FTP file storage service
 ├── services/            # Frontend services
 │   └── storage.ts       # API client for data operations
 ├── types.ts            # TypeScript type definitions
@@ -247,6 +271,8 @@ The backend provides REST API endpoints:
 - `POST /api/content` - Update site content
 - `POST /api/upload` - Upload single file
 - `POST /api/upload/multiple` - Upload multiple files
+- `DELETE /api/upload/:fileName` - Delete file
+- `GET /api/images/:fileName` - Proxy endpoint for serving images from FTP (avoids CORS issues)
 
 ## Development
 
@@ -272,9 +298,23 @@ npm run preview
 
 ## Data Storage
 
-- **Database**: SQLite (`server/data.db`)
-- **Files**: Local filesystem (`server/uploads/`)
+- **Database**: Google Cloud Firestore (NoSQL, serverless)
+- **Files**: FTP server (configured via environment variables)
 - All data persists between sessions
+
+### FTP Storage
+
+This application uses FTP for storing uploaded files (images and videos). Files are uploaded to your FTP server and served through a proxy endpoint to avoid CORS issues.
+
+**Setup:**
+1. Configure FTP credentials in `.env.local` (see [FTP_SETUP.md](./FTP_SETUP.md))
+2. Create an `uploads` directory on your FTP server
+3. Restart the server
+
+The application will automatically:
+- Upload files to your FTP server
+- Serve images through `/api/images/:filename` proxy endpoint
+- Handle file deletions from FTP
 
 ## Troubleshooting
 
@@ -283,12 +323,14 @@ npm run preview
 - Ensure Node.js is installed correctly
 
 **Images not uploading:**
-- Check that `server/uploads/` directory exists and is writable
+- Verify FTP configuration in `.env.local` (FTP_HOST, FTP_USER, FTP_PASSWORD, FTP_BASE_PATH, FTP_BASE_URL)
+- Check FTP server logs and ensure the uploads directory exists and is writable
 - Verify file size limits (50MB for uploads, 20MB for videos)
+- Check server logs for FTP connection errors
 
 **Database errors:**
 - Ensure only one instance of the server is running
-- Check file permissions on `server/data.db`
+- Check Firestore permissions and project ID configuration
 
 **CORS errors:**
 - Ensure backend server is running on port 3001
@@ -306,14 +348,30 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed Cloud Run deployment instructi
 # 1. Set up IAM permissions (first time only)
 ./setup-iam.sh your-project-id
 
-# 2. Deploy to Cloud Run
+# 2. Configure environment variables in .env.local
+# Make sure your .env.local contains ADMIN_PASSWORD and FTP_* variables
+
+# 3. Deploy to Cloud Run (with automatic env var configuration)
+./deploy.sh your-project-id us-central1 --use-env-file
+
+# Or deploy without automatic configuration and set env vars manually:
 ./deploy.sh your-project-id us-central1
 
-# 3. Set admin password
+# Then set environment variables manually:
 gcloud run services update atelier-hajny \
   --region=us-central1 \
-  --set-env-vars="ADMIN_PASSWORD=your-secure-password-here"
+  --update-env-vars="ADMIN_PASSWORD=your-secure-password-here,FTP_HOST=ftp.yourdomain.com,FTP_USER=your_ftp_user,FTP_PASSWORD=your_ftp_password,FTP_PORT=21,FTP_SECURE=false,FTP_BASE_PATH=/public_html/uploads,FTP_BASE_URL=https://yourdomain.com/uploads"
 ```
+
+**Important:** After deployment, you must configure:
+1. **Admin password** - Required for admin panel access
+2. **FTP credentials** - Required for file uploads (see [FTP_SETUP.md](./FTP_SETUP.md) for details)
+
+**Using `--use-env-file` flag:**
+- Automatically reads environment variables from `.env.local`
+- Configures Cloud Run with these variables after deployment
+- Only reads: `ADMIN_PASSWORD`, `FTP_HOST`, `FTP_USER`, `FTP_PASSWORD`, `FTP_PORT`, `FTP_SECURE`, `FTP_BASE_PATH`, `FTP_BASE_URL`
+- Skips comments and empty lines
 
 **Note:**
 - If you get permission errors (403) during deployment, run `./setup-iam.sh` first to grant necessary IAM roles.
@@ -333,12 +391,19 @@ gcloud run services update atelier-hajny \
    - **Important:** Use a strong, unique password (at least 12 characters, mix of letters, numbers, and symbols)
    - **Never** commit the production password to version control
 
-2. Set `VITE_API_URL` environment variable to your production API URL (if needed)
+2. **Configure FTP storage:**
+   - Set FTP environment variables (`FTP_HOST`, `FTP_USER`, `FTP_PASSWORD`, `FTP_BASE_PATH`, `FTP_BASE_URL`)
+   - Create the uploads directory on your FTP server
+   - See [FTP_SETUP.md](./FTP_SETUP.md) for detailed instructions
+   - **Note:** Files are served through a proxy endpoint to avoid CORS issues
 
-3. **Data Persistence:**
-   - **For Cloud Run**: Use Cloud Storage for files and Cloud SQL for database (see DEPLOYMENT.md)
-   - **For other platforms**: Consider using cloud storage (S3, Cloudinary) instead of local filesystem
-   - Use a production database (PostgreSQL, MySQL) instead of SQLite for persistence
+3. Set `VITE_API_URL` environment variable to your production API URL (if needed)
+
+4. **Data Persistence:**
+   - **Database**: Firestore (persistent, serverless, scales automatically)
+   - **Files**: Stored on FTP server (configured via environment variables)
+   - **For Cloud Run**: Consider using Cloud SQL for database persistence (see DEPLOYMENT.md)
+   - **For other platforms**: Consider using cloud storage (S3, Cloudinary) or keep using FTP
 
 4. Implement proper authentication (JWT tokens) for enhanced security
 

@@ -90,11 +90,17 @@ export const saveProjects = async (projects: Project[]): Promise<void> => {
     // Save each project individually
     for (let i = 0; i < projects.length; i++) {
       const project = projects[i];
-      // Extract filename from URL if it's already uploaded (remove domain and /uploads/)
+      // Extract filename from URL if it's already uploaded (remove domain, /api/images/, /uploads/)
       const extractFileName = (url: string | null | undefined): string | null => {
         if (!url) return null;
         // Handle both full URLs and relative paths
-        const cleaned = url.replace(/^https?:\/\/[^\/]+/, '').replace(/^\/uploads\//, '').replace(/^uploads\//, '');
+        // Remove protocol and domain
+        let cleaned = url.replace(/^https?:\/\/[^\/]+/, '');
+        // Remove /api/images/ prefix (FTP proxy endpoint)
+        cleaned = cleaned.replace(/^\/api\/images\//, '');
+        // Remove /uploads/ prefix (legacy local storage)
+        cleaned = cleaned.replace(/^\/uploads\//, '').replace(/^uploads\//, '');
+        // Return just the filename
         return cleaned || null;
       };
 

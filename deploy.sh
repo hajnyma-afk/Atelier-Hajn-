@@ -1,16 +1,45 @@
 #!/bin/bash
 
 # Cloud Run Deployment Script
-# Usage: ./deploy.sh [project-id] [region]
+# Usage: ./deploy.sh [project-id] [region] [--use-env-file|-e]
 
 set -e
 
-PROJECT_ID=${1:-${GOOGLE_CLOUD_PROJECT}}
-REGION=${2:-us-central1}
+USE_ENV_FILE=false
+PROJECT_ID=""
+REGION="us-central1"
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --use-env-file|-e)
+      USE_ENV_FILE=true
+      shift
+      ;;
+    *)
+      if [ -z "$PROJECT_ID" ]; then
+        PROJECT_ID=$1
+      elif [ "$REGION" = "us-central1" ]; then
+        REGION=$1
+      else
+        echo "Error: Unknown argument: $1"
+        echo "Usage: ./deploy.sh [project-id] [region] [--use-env-file|-e]"
+        exit 1
+      fi
+      shift
+      ;;
+  esac
+done
+
+# Use GOOGLE_CLOUD_PROJECT if PROJECT_ID not provided
+if [ -z "$PROJECT_ID" ]; then
+  PROJECT_ID=${GOOGLE_CLOUD_PROJECT}
+fi
 
 if [ -z "$PROJECT_ID" ]; then
   echo "Error: Project ID is required"
-  echo "Usage: ./deploy.sh [project-id] [region]"
+  echo "Usage: ./deploy.sh [project-id] [region] [--use-env-file|-e]"
+  echo "  --use-env-file, -e  : Read environment variables from .env.local and set them in Cloud Run"
   echo "Or set GOOGLE_CLOUD_PROJECT environment variable"
   exit 1
 fi
@@ -18,6 +47,10 @@ fi
 echo "Deploying to Cloud Run..."
 echo "Project: $PROJECT_ID"
 echo "Region: $REGION"
+if [ "$USE_ENV_FILE" = true ]; then
+  echo "Reading environment variables from .env.local"
+fi
+echo ""
 
 # Check if gcloud is installed
 if ! command -v gcloud &> /dev/null; then
@@ -111,7 +144,113 @@ echo ""
 echo "✅ Deployment complete!"
 echo ""
 echo "Your application should be available at:"
-gcloud run services describe atelier-hajny \
+SERVICE_URL=$(gcloud run services describe atelier-hajny \
   --region=$REGION \
-  --format='value(status.url)' 2>/dev/null || echo "Check Cloud Run console for the URL"
+  --format='value(status.url)' 2>/dev/null || echo "")
+
+if [ -n "$SERVICE_URL" ]; then
+  echo "$SERVICE_URL"
+  echo ""
+
+  # If --use-env-file flag is set, read .env.local and update Cloud Run
+  if [ "$USE_ENV_FILE" = true ]; then
+    if [ ! -f ".env.local" ]; then
+      echo "⚠️  WARNING: .env.local file not found!"
+      echo "   Skipping automatic environment variable configuration."
+      echo ""
+      USE_ENV_FILE=false
+    else
+      echo "Reading environment variables from .env.local..."
+
+      # Function to read env vars from .env.local
+      read_env_vars() {
+        local env_vars=""
+        local var_name
+        local var_value
+
+        # List of variables we want to read
+        local vars=("ADMIN_PASSWORD" "GCP_PROJECT_ID" "GOOGLE_CLOUD_PROJECT" "FTP_HOST" "FTP_USER" "FTP_PASSWORD" "FTP_PORT" "FTP_SECURE" "FTP_BASE_PATH" "FTP_BASE_URL")
+
+        # Read .env.local line by line
+        while IFS= read -r line || [ -n "$line" ]; do
+          # Skip comments and empty lines
+          [[ "$line" =~ ^[[:space:]]*# ]] && continue
+          [[ -z "${line// }" ]] && continue
+
+          # Split on first = sign
+          if [[ "$line" =~ ^[[:space:]]*([^=]+)=(.*)$ ]]; then
+            key="${BASH_REMATCH[1]}"
+            value="${BASH_REMATCH[2]}"
+
+            # Remove leading/trailing whitespace from key
+            key=$(echo "$key" | xargs)
+
+            # Check if this is a variable we want
+            for var in "${vars[@]}"; do
+              if [ "$key" = "$var" ]; then
+                # Remove leading/trailing whitespace and quotes from value
+                value=$(echo "$value" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/")
+
+                # Escape commas in value (they're used as separators in gcloud)
+                value=$(echo "$value" | sed 's/,/\\,/g')
+
+                if [ -n "$env_vars" ]; then
+                  env_vars="$env_vars,"
+                fi
+                env_vars="$env_vars$key=$value"
+                break
+              fi
+            done
+          fi
+        done < .env.local
+
+        echo "$env_vars"
+      }
+
+      ENV_VARS=$(read_env_vars)
+
+      if [ -z "$ENV_VARS" ]; then
+        echo "⚠️  WARNING: No relevant environment variables found in .env.local"
+        echo "   Make sure your .env.local contains ADMIN_PASSWORD, GCP_PROJECT_ID, and FTP_* variables"
+        echo ""
+        USE_ENV_FILE=false
+      else
+        echo "Setting environment variables in Cloud Run..."
+        echo ""
+
+        if gcloud run services update atelier-hajny \
+          --region=$REGION \
+          --update-env-vars="$ENV_VARS" 2>&1; then
+          echo ""
+          echo "✅ Environment variables configured successfully!"
+          echo ""
+          echo "Configured variables:"
+          echo "$ENV_VARS" | tr ',' '\n' | sed 's/^/  - /'
+        else
+          echo ""
+          echo "⚠️  WARNING: Failed to set environment variables automatically"
+          echo "   Please set them manually using the commands below"
+          echo ""
+          USE_ENV_FILE=false
+        fi
+      fi
+    fi
+  fi
+
+  # Show manual instructions if not using env file or if automatic setup failed
+  if [ "$USE_ENV_FILE" = false ]; then
+    echo "⚠️  IMPORTANT: Set up environment variables for Firestore, FTP, and admin password:"
+    echo ""
+    echo "gcloud run services update atelier-hajny \\"
+    echo "  --region=$REGION \\"
+    echo "  --update-env-vars=\"ADMIN_PASSWORD=your-secure-password-here,GCP_PROJECT_ID=your-project-id,FTP_HOST=ftp.yourdomain.com,FTP_USER=your_ftp_user,FTP_PASSWORD=your_ftp_password,FTP_PORT=21,FTP_SECURE=false,FTP_BASE_PATH=/public_html/uploads,FTP_BASE_URL=https://yourdomain.com/uploads\""
+    echo ""
+    echo "Or use --use-env-file flag to read from .env.local:"
+    echo "  ./deploy.sh $PROJECT_ID $REGION --use-env-file"
+    echo ""
+    echo "See README.md, FIRESTORE_SETUP.md, or FTP_SETUP.md for detailed configuration instructions."
+  fi
+else
+  echo "Check Cloud Run console for the URL"
+fi
 

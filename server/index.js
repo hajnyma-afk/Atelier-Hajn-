@@ -1,14 +1,17 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { initDatabase } from './db.js';
 import { setupRoutes } from './routes.js';
-import { ensureUploadsDir } from './utils.js';
+import { isFtpConfigured } from './ftpService.js';
 
+// Load environment variables from .env.local first, then .env
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+dotenv.config({ path: join(__dirname, '..', '.env.local') });
+dotenv.config(); // This will load .env if .env.local doesn't have the variable
 
 const app = express();
 // Cloud Run sets PORT environment variable, default to 3001 for local development
@@ -19,32 +22,68 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Initialize database
-const db = initDatabase();
+// Initialize database and start server
+(async () => {
+  try {
+    const db = await initDatabase();
 
-// Ensure uploads directory exists
-ensureUploadsDir();
+    // Check FTP configuration
+    if (isFtpConfigured()) {
+      console.log('✅ FTP storage configured');
+      console.log(`   Host: ${process.env.FTP_HOST}`);
+      console.log(`   Base URL: ${process.env.FTP_BASE_URL || 'Not set'}`);
+    } else {
+      console.warn('⚠️  WARNING: FTP not configured. File uploads will fail.');
+      console.warn('   Please set FTP_HOST, FTP_USER, FTP_PASSWORD, FTP_BASE_PATH, and FTP_BASE_URL environment variables.');
+    }
 
-// Setup API routes (must come before static file serving)
-setupRoutes(app, db);
+    // Setup API routes (must come before static file serving)
+    setupRoutes(app, db);
 
-// Serve uploaded files statically
-app.use('/uploads', express.static(join(__dirname, 'uploads')));
+    // Serve static files from Vite build in production
+    if (process.env.NODE_ENV === 'production') {
+      const distPath = join(__dirname, '..', 'dist');
+      app.use(express.static(distPath));
 
-// Serve static files from Vite build in production
-if (process.env.NODE_ENV === 'production') {
-  const distPath = join(__dirname, '..', 'dist');
-  app.use(express.static(distPath));
+      // Serve index.html for all non-API routes (SPA routing)
+      // This must be last to catch all routes not handled above
+      app.get('*', (req, res) => {
+        res.sendFile(join(distPath, 'index.html'));
+      });
+    }
 
-  // Serve index.html for all non-API routes (SPA routing)
-  // This must be last to catch all routes not handled above
-  app.get('*', (req, res) => {
-    res.sendFile(join(distPath, 'index.html'));
-  });
-}
+    const server = app.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`Database: Firestore (project: ${process.env.GCP_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || 'default'})`);
+    });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-  console.log(`Database initialized at ${join(__dirname, 'data.db')}`);
-});
+    // Graceful shutdown
+    process.on('SIGTERM', async () => {
+      console.log('SIGTERM received, shutting down gracefully...');
+      const { closeFtpConnection } = await import('./ftpService.js');
+      const { closeDatabase } = await import('./db.js');
+      await closeFtpConnection();
+      await closeDatabase();
+      server.close(() => {
+        console.log('Server closed');
+        process.exit(0);
+      });
+    });
+
+    process.on('SIGINT', async () => {
+      console.log('\nSIGINT received, shutting down gracefully...');
+      const { closeFtpConnection } = await import('./ftpService.js');
+      const { closeDatabase } = await import('./db.js');
+      await closeFtpConnection();
+      await closeDatabase();
+      server.close(() => {
+        console.log('Server closed');
+        process.exit(0);
+      });
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error.message);
+    process.exit(1);
+  }
+})();
 

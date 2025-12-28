@@ -104,17 +104,61 @@ gcloud services enable containerregistry.googleapis.com
 Set these in Cloud Run after deployment:
 
 1. **ADMIN_PASSWORD** - Your admin panel password (required)
-2. **VITE_API_URL** - Your Cloud Run service URL (optional, auto-detected)
+2. **FTP_HOST** - Your FTP server hostname (required for file uploads)
+3. **FTP_USER** - Your FTP username (required for file uploads)
+4. **FTP_PASSWORD** - Your FTP password (required for file uploads)
+5. **FTP_BASE_PATH** - FTP directory path (e.g., `/public_html/uploads`)
+6. **FTP_BASE_URL** - Public URL for uploaded files (e.g., `https://yourdomain.com/uploads`)
+
+### Optional Environment Variables
+
+- **FTP_PORT** - FTP port (default: `21`)
+- **FTP_SECURE** - Use FTPS (default: `false`)
+- **VITE_API_URL** - Your Cloud Run service URL (optional, auto-detected)
 
 ### Setting Environment Variables
 
 **Option 1: Via gcloud CLI**
 
+Set all required environment variables:
+
 ```bash
 gcloud run services update atelier-hajny \
   --region=us-central1 \
-  --set-env-vars="ADMIN_PASSWORD=your-secure-password-here"
+  --update-env-vars="ADMIN_PASSWORD=your-secure-password-here,FTP_HOST=ftp.yourdomain.com,FTP_USER=your_ftp_user,FTP_PASSWORD=your_ftp_password,FTP_PORT=21,FTP_SECURE=false,FTP_BASE_PATH=/public_html/uploads,FTP_BASE_URL=https://yourdomain.com/uploads"
 ```
+
+Or set them individually:
+
+```bash
+# Admin password
+gcloud run services update atelier-hajny \
+  --region=us-central1 \
+  --set-env-vars="ADMIN_PASSWORD=your-secure-password-here"
+
+# FTP configuration
+gcloud run services update atelier-hajny \
+  --region=us-central1 \
+  --set-env-vars="FTP_HOST=ftp.yourdomain.com"
+
+gcloud run services update atelier-hajny \
+  --region=us-central1 \
+  --set-env-vars="FTP_USER=your_ftp_user"
+
+gcloud run services update atelier-hajny \
+  --region=us-central1 \
+  --set-env-vars="FTP_PASSWORD=your_ftp_password"
+
+gcloud run services update atelier-hajny \
+  --region=us-central1 \
+  --set-env-vars="FTP_BASE_PATH=/public_html/uploads"
+
+gcloud run services update atelier-hajny \
+  --region=us-central1 \
+  --set-env-vars="FTP_BASE_URL=https://yourdomain.com/uploads"
+```
+
+**Note:** For security, consider using [Secret Manager](https://cloud.google.com/secret-manager) for sensitive values like passwords instead of environment variables.
 
 **Option 2: Via Cloud Console**
 
@@ -138,7 +182,10 @@ chmod +x deploy.sh setup-iam.sh
 # If you haven't set up IAM permissions yet:
 ./setup-iam.sh your-project-id
 
-# Deploy
+# Option A: Deploy with automatic environment variable configuration from .env.local
+./deploy.sh your-project-id us-central1 --use-env-file
+
+# Option B: Deploy without automatic configuration (set env vars manually after)
 ./deploy.sh your-project-id us-central1
 ```
 
@@ -148,6 +195,13 @@ The script will:
 - Build the Docker image
 - Push to Container Registry
 - Deploy to Cloud Run
+- (If `--use-env-file` is used) Automatically configure environment variables from `.env.local`
+
+**Using `--use-env-file` flag:**
+- Reads environment variables from `.env.local` file
+- Automatically sets them in Cloud Run after deployment
+- Only reads: `ADMIN_PASSWORD`, `FTP_HOST`, `FTP_USER`, `FTP_PASSWORD`, `FTP_PORT`, `FTP_SECURE`, `FTP_BASE_PATH`, `FTP_BASE_URL`
+- Skips comments and empty lines in `.env.local`
 
 ### Method 2: Cloud Build (CI/CD)
 
@@ -172,13 +226,15 @@ gcloud run deploy atelier-hajny \
   --region us-central1 \
   --platform managed \
   --allow-unauthenticated \
-  --set-env-vars="ADMIN_PASSWORD=your-secure-password-here,NODE_ENV=production" \
+  --set-env-vars="ADMIN_PASSWORD=your-secure-password-here,NODE_ENV=production,FTP_HOST=ftp.yourdomain.com,FTP_USER=your_ftp_user,FTP_PASSWORD=your_ftp_password,FTP_PORT=21,FTP_SECURE=false,FTP_BASE_PATH=/public_html/uploads,FTP_BASE_URL=https://yourdomain.com/uploads" \
   --memory 512Mi \
   --cpu 1 \
   --min-instances 0 \
   --max-instances 10 \
   --timeout 300
 ```
+
+**Important:** After deployment, make sure to set all FTP environment variables. See [FTP_SETUP.md](./FTP_SETUP.md) for detailed FTP configuration instructions.
 
 ## Configuration
 
@@ -198,45 +254,82 @@ Edit `cloudbuild.yaml` to customize:
 - **Medium site**: 1Gi memory, 2 CPU
 - **Large site**: 2Gi memory, 2 CPU
 
+## FTP Configuration
+
+This application uses FTP for file storage. You need to configure FTP credentials after deployment.
+
+### Setting Up FTP
+
+1. **Get FTP credentials from your hosting provider** (e.g., Wedos.com)
+   - FTP Host (e.g., `ftp.wedos.com` or `ftp.yourdomain.com`)
+   - FTP Username
+   - FTP Password
+   - FTP Port (usually `21` for standard FTP, `990` for FTPS)
+
+2. **Create uploads directory on your FTP server**
+   - Log into your FTP account
+   - Navigate to your public HTML directory (usually `public_html` or `www`)
+   - Create an `uploads` directory
+   - Ensure it has write permissions
+
+3. **Set FTP environment variables in Cloud Run**
+
+   ```bash
+   gcloud run services update atelier-hajny \
+     --region=us-central1 \
+     --update-env-vars="FTP_HOST=ftp.yourdomain.com,FTP_USER=your_ftp_user,FTP_PASSWORD=your_ftp_password,FTP_PORT=21,FTP_SECURE=false,FTP_BASE_PATH=/public_html/uploads,FTP_BASE_URL=https://yourdomain.com/uploads"
+   ```
+
+4. **Verify FTP connection**
+   - Check Cloud Run logs: `gcloud run services logs read atelier-hajny --region=us-central1`
+   - You should see: `✅ FTP storage configured`
+
+For detailed FTP setup instructions, see [FTP_SETUP.md](./FTP_SETUP.md).
+
 ## Important Considerations
 
-### ⚠️ Data Persistence
+### ✅ Data Persistence
 
-**Current Limitation**: Cloud Run instances are stateless and ephemeral. This means:
+**Current Setup**:
 
-- **SQLite database** (`server/data.db`) will be lost when the container stops
-- **Uploaded files** (`server/uploads/`) will be lost when the container stops
+- **Firestore database** - Fully managed, persistent, serverless NoSQL database
+- **Uploaded files** - Stored on FTP server (persistent, configured via environment variables)
 
-### Solutions for Production
+**Firestore Benefits**:
+- Persistent storage (data survives container restarts)
+- Serverless (scales automatically)
+- Generous free tier (50K reads, 20K writes, 1 GB storage/month)
+- No database management required
 
-1. **Use Cloud SQL** (PostgreSQL or MySQL) instead of SQLite
-2. **Use Cloud Storage** for file uploads instead of local filesystem
-3. **Use Cloud SQL with persistent disk** for SQLite (not recommended)
+### Setting Up Firestore
 
-### Quick Fix: Use Cloud Storage for Files
+1. **Enable Firestore API**:
+   ```bash
+   gcloud services enable firestore.googleapis.com
+   ```
 
-Update `server/utils.js` to use Cloud Storage:
+2. **Create Firestore Database**:
+   - Go to [Firestore Console](https://console.cloud.google.com/firestore)
+   - Click "Create Database"
+   - Choose **Native mode**
+   - Select a location (same region as Cloud Run recommended)
 
-```javascript
-import { Storage } from '@google-cloud/storage';
+3. **Grant Permissions**:
+   ```bash
+   PROJECT_ID=$(gcloud config get-value project)
+   gcloud projects add-iam-policy-binding $PROJECT_ID \
+     --member="serviceAccount:${PROJECT_ID}@appspot.gserviceaccount.com" \
+     --role="roles/datastore.user"
+   ```
 
-const storage = new Storage();
-const bucket = storage.bucket('your-bucket-name');
+4. **Set Environment Variable**:
+   ```bash
+   gcloud run services update atelier-hajny \
+     --region=us-central1 \
+     --update-env-vars="GCP_PROJECT_ID=$PROJECT_ID"
+   ```
 
-export async function saveFile(fileName, buffer) {
-  const file = bucket.file(fileName);
-  await file.save(buffer);
-  return `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-}
-```
-
-### Quick Fix: Use Cloud SQL
-
-Replace SQLite with PostgreSQL:
-
-1. Create Cloud SQL instance
-2. Update database connection in `server/db.js`
-3. Use `pg` or `postgres` npm package
+See [FIRESTORE_SETUP.md](./FIRESTORE_SETUP.md) for detailed setup instructions.
 
 ## Post-Deployment
 

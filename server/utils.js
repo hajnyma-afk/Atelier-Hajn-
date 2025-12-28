@@ -1,17 +1,4 @@
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-export const UPLOADS_DIR = join(__dirname, 'uploads');
-
-export function ensureUploadsDir() {
-  if (!existsSync(UPLOADS_DIR)) {
-    mkdirSync(UPLOADS_DIR, { recursive: true });
-  }
-}
+import { isFtpConfigured } from './ftpService.js';
 
 export function generateFileName(originalName, mimeType) {
   const ext = mimeType.includes('video')
@@ -22,7 +9,15 @@ export function generateFileName(originalName, mimeType) {
   return `${timestamp}-${random}${ext}`;
 }
 
+/**
+ * Get file URL - uses proxy endpoint to avoid CORS issues when FTP is configured
+ */
 export function getFileUrl(fileName) {
+  if (isFtpConfigured()) {
+    // Use proxy endpoint to avoid CORS issues
+    return `/api/images/${fileName}`;
+  }
+  // Fallback to relative path (for backward compatibility or local dev)
   return `/uploads/${fileName}`;
 }
 

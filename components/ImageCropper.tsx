@@ -10,18 +10,20 @@ interface ImageCropperProps {
   onCancel: () => void;
 }
 
-export const ImageCropper: React.FC<ImageCropperProps> = ({ 
-  imageSrc, 
-  aspectRatio, 
-  onCrop, 
-  onCancel 
+export const ImageCropper: React.FC<ImageCropperProps> = ({
+  imageSrc,
+  aspectRatio,
+  onCrop,
+  onCancel
 }) => {
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
-  
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
 
@@ -30,22 +32,34 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
   const cropHeight = CROP_WIDTH / aspectRatio;
 
   useEffect(() => {
+    setImageLoaded(false);
+    setImageError(null);
+    setImageSize({ width: 0, height: 0 });
+
     const img = new Image();
+    // Images are now proxied through backend, so CORS is not needed
     img.src = imageSrc;
+
     img.onload = () => {
       setImageSize({ width: img.naturalWidth, height: img.naturalHeight });
-      
+      setImageLoaded(true);
+
       // Calculate initial zoom to cover
       const scaleW = CROP_WIDTH / img.naturalWidth;
       const scaleH = cropHeight / img.naturalHeight;
       const initialScale = Math.max(scaleW, scaleH);
       setZoom(initialScale);
-      
+
       // Center initial position
       setOffset({
         x: (CROP_WIDTH - img.naturalWidth * initialScale) / 2,
         y: (cropHeight - img.naturalHeight * initialScale) / 2
       });
+    };
+
+    img.onerror = (error) => {
+      console.error('Failed to load image in cropper:', imageSrc, error);
+      setImageError(`Nepodařilo se načíst obrázek. Zkontrolujte URL: ${imageSrc}`);
     };
   }, [imageSrc, cropHeight]);
 
@@ -61,7 +75,7 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
     if (!isDragging) return;
     const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
-    
+
     setOffset({
       x: clientX - dragStart.x,
       y: clientY - dragStart.y
@@ -82,10 +96,10 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
     // Set high resolution output
     const outputWidth = 1200;
     const outputHeight = outputWidth / aspectRatio;
-    
+
     canvas.width = outputWidth;
     canvas.height = outputHeight;
-    
+
     const ctx = canvas.getContext('2d');
     if (ctx && imageRef.current) {
       // Background fill
@@ -94,14 +108,14 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
 
       // Math to map UI coordinates to Canvas coordinates
       const scaleRatio = outputWidth / CROP_WIDTH;
-      
+
       const drawX = offset.x * scaleRatio;
       const drawY = offset.y * scaleRatio;
       const drawW = imageSize.width * zoom * scaleRatio;
       const drawH = imageSize.height * zoom * scaleRatio;
 
       ctx.drawImage(imageRef.current, drawX, drawY, drawW, drawH);
-      
+
       // Changed to image/webp for consistent output format
       onCrop(canvas.toDataURL('image/webp', 0.9));
     }
@@ -122,7 +136,7 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
 
         <div className="flex-1 p-8 bg-gray-100 flex items-center justify-center select-none overflow-hidden relative">
            {/* Crop Mask Area */}
-           <div 
+           <div
               ref={containerRef}
               className="relative bg-white shadow-2xl cursor-move overflow-hidden border-2 border-black/10"
               style={{ width: CROP_WIDTH, height: cropHeight }}
@@ -135,21 +149,30 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
               onTouchEnd={handleMouseUp}
               onWheel={handleWheel}
            >
-              {imageSrc && (
-                <img 
+              {imageError ? (
+                <div className="absolute inset-0 flex items-center justify-center text-red-500 text-sm p-4 text-center">
+                  {imageError}
+                </div>
+              ) : imageSrc && imageLoaded ? (
+                <img
                   ref={imageRef}
-                  src={imageSrc} 
-                  alt="Crop target" 
+                  src={imageSrc}
+                  alt="Crop target"
                   className="max-w-none absolute origin-top-left pointer-events-none"
-                  style={{ 
+                  style={{
                     transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
                     width: imageSize.width,
                     height: imageSize.height
                   }}
                   draggable={false}
+                  onError={() => setImageError('Chyba při načítání obrázku')}
                 />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
+                  Načítání obrázku...
+                </div>
               )}
-              
+
               {/* Grid Overlay Rule of Thirds */}
               <div className="absolute inset-0 pointer-events-none opacity-30">
                 <div className="absolute left-1/3 top-0 bottom-0 w-px bg-white drop-shadow-md"></div>
@@ -163,11 +186,11 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
         <div className="p-6 bg-white border-t border-gray-100 space-y-6">
           <div className="flex items-center gap-4">
             <ZoomOut size={16} className="text-gray-400" />
-            <input 
-              type="range" 
-              min="0.1" 
-              max="3" 
-              step="0.01" 
+            <input
+              type="range"
+              min="0.1"
+              max="3"
+              step="0.01"
               value={zoom}
               onChange={(e) => setZoom(parseFloat(e.target.value))}
               className="flex-1 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
