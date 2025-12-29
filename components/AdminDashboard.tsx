@@ -219,7 +219,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       try {
-        const imageUrl = await processAndUploadImage(e.target.files[0]);
+        // Thumbnail will be downsized to 500 pixels on horizontal side when uploaded
+        const imageUrl = await processAndUploadImage(e.target.files[0], 500);
         setCropper({
           isOpen: true,
           imageSrc: imageUrl,
