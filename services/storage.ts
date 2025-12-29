@@ -56,7 +56,7 @@ const DEFAULT_CONTENT: SiteContent = {
     image: ""
   },
   contact: {
-    address: "Pernerova 35, 186 00 Praha 8, Česká Republika",
+    address: "Nitranská 19, 130 00 Praha 3, Česká Republika",
     email: "hello@zencms.studio",
     phone: "+420 123 456 789"
   }

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Project, SiteContent } from '../types';
 import { Plus, Trash2, Edit2, LogOut, X, Upload, Image as ImageIcon, Crop, GripHorizontal, GripVertical, FileVideo, BarChart, Search, Tag, Video } from 'lucide-react';
@@ -69,13 +68,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   /**
    * Process and upload image:
-   * 1. Resizes image if it exceeds MAX_DIMENSION
-   * 2. Converts to WebP format
+   * 1. Resizes image if it exceeds targetMaxWidth (to save storage space)
+   * 2. Automatically converts to .webp format for better compression
    * 3. Uploads to server and returns URL
    */
-  const processAndUploadImage = async (file: File): Promise<string> => {
-    const MAX_DIMENSION = 1920;
-
+  const processAndUploadImage = (file: File, targetMaxWidth: number | 'original' = 1920): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
 
@@ -86,16 +83,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           let width = img.width;
           let height = img.height;
 
-          // Maintain aspect ratio while resizing
-          if (width > height) {
-            if (width > MAX_DIMENSION) {
-              height *= MAX_DIMENSION / width;
-              width = MAX_DIMENSION;
-            }
-          } else {
-            if (height > MAX_DIMENSION) {
-              width *= MAX_DIMENSION / height;
-              height = MAX_DIMENSION;
+          // Resize based on horizontal side (width) if not 'original'
+          if (targetMaxWidth !== 'original') {
+            if (width > targetMaxWidth) {
+              height *= targetMaxWidth / width;
+              width = targetMaxWidth;
             }
           }
 
@@ -256,11 +248,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (e.target.files && editingProject) {
       try {
         const fileList = Array.from(e.target.files) as File[];
-        const uploadedUrls = await uploadMultipleFiles(fileList);
+        // Limit project gallery images to 2500px on the horizontal side (width)
+        const processedImages = await Promise.all(fileList.map(file => processAndUploadImage(file, 2500)));
 
         setEditingProject({
           ...editingProject,
-          images: [...editingProject.images, ...uploadedUrls]
+          images: [...editingProject.images, ...processedImages]
         });
         e.target.value = '';
       } catch (error) {
@@ -346,7 +339,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleHeroImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       try {
-        const imageUrl = await processAndUploadImage(e.target.files[0]);
+        // Skip resizing for hero images to preserve original resolution
+        const imageUrl = await processAndUploadImage(e.target.files[0], 'original');
         setCropper({
           isOpen: true,
           imageSrc: imageUrl,
@@ -652,13 +646,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                <div className="space-y-8">
                   <div className="space-y-4">
-                    <label className="text-xs uppercase tracking-widest text-gray-500">Pozadí (Hero Media)</label>
+                    <label className="text-xs uppercase tracking-widest text-gray-500">Média v pozadí (Hero Media)</label>
 
-                    {/* Media Upload Section */}
-                    <div className="bg-gray-50 p-6 rounded border border-gray-100 space-y-6">
+                    {/* Hero Image / Placeholder Section - ALWAYS SHOWN BEFORE VIDEO */}
+                    <div className="bg-gray-50 p-6 rounded border border-gray-100 space-y-4">
+                      <div className="flex items-center gap-3 mb-2">
+                        <ImageIcon size={18} className="text-beige-600" />
+                        <h3 className="text-sm font-medium uppercase tracking-widest">Úvodní obrázek (Placeholder)</h3>
+                      </div>
+
+                      <div className="relative group w-full aspect-video bg-white border-2 border-dashed border-gray-300 rounded flex flex-col items-center justify-center cursor-pointer hover:border-black hover:bg-gray-100 transition-colors overflow-hidden">
+                        {heroForm.image ? (
+                          <img src={heroForm.image} alt="Hero Background" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="text-center p-4 text-gray-400">
+                            <Upload size={24} className="mx-auto mb-2" />
+                            <span className="text-xs">Nahrát statický obrázek</span>
+                            <p className="text-[10px] mt-2 text-gray-400">Doporučený poměr 16:9. Tento obrázek se zobrazí vždy jako první.</p>
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleHeroImageUpload}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                        />
+                         {heroForm.image && (
+                           <div className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                             <span className="text-xs uppercase tracking-widest">Změnit obrázek</span>
+                           </div>
+                         )}
+                      </div>
+                    </div>
+
+                    {/* Media Video Section */}
+                    <div className="bg-gray-50 p-6 rounded border border-gray-100 space-y-4">
                       <div className="flex items-center gap-3 mb-2">
                         <FileVideo size={18} className="text-beige-600" />
-                        <h3 className="text-sm font-medium uppercase tracking-widest">Nahrát Video Pozadí</h3>
+                        <h3 className="text-sm font-medium uppercase tracking-widest">Video pozadí (Volitelné)</h3>
                       </div>
 
                       <div className="space-y-4">
@@ -681,7 +706,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                              <div className="text-center p-4 text-gray-400">
                                <Upload size={24} className="mx-auto mb-2" />
                                <span className="text-xs">Nahrát video (MP4)</span>
-                               <p className="text-[10px] mt-2 text-gray-400">Doporučený poměr 16:9, max 20MB</p>
+                               <p className="text-[10px] mt-2 text-gray-400">Doporučený poměr 16:9, max 20MB. Video se načte na pozadí obrázku.</p>
                              </div>
                            )}
                            <input
@@ -691,32 +716,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                            />
                         </div>
-                      </div>
-                    </div>
-
-                    {/* Static Image Backup */}
-                    <div className="space-y-4">
-                      <label className="text-xs uppercase tracking-widest text-gray-500">Alternativní obrázek (pokud není video)</label>
-                      <div className="relative group w-full aspect-video bg-gray-50 border-2 border-dashed border-gray-300 rounded flex flex-col items-center justify-center cursor-pointer hover:border-black hover:bg-gray-100 transition-colors overflow-hidden">
-                        {heroForm.image ? (
-                          <img src={heroForm.image} alt="Hero Background" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="text-center p-4 text-gray-400">
-                            <ImageIcon size={24} className="mx-auto mb-2" />
-                            <span className="text-xs">Nahrát statický obrázek</span>
-                          </div>
-                        )}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleHeroImageUpload}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                        />
-                         {heroForm.image && (
-                           <div className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                             <span className="text-xs uppercase tracking-widest">Změnit obrázek</span>
-                           </div>
-                         )}
                       </div>
                     </div>
                   </div>

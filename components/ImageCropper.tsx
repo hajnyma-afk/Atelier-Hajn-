@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Check, ZoomIn, ZoomOut, Move } from 'lucide-react';
 import { Button } from './Button';
@@ -88,14 +87,17 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
 
   const handleWheel = (e: React.WheelEvent) => {
     const newZoom = zoom - e.deltaY * 0.001;
-    setZoom(Math.max(0.1, newZoom));
+    setZoom(Math.max(0.01, newZoom));
   };
 
   const handleCrop = () => {
     const canvas = document.createElement('canvas');
-    // Set high resolution output
-    const outputWidth = 1200;
-    const outputHeight = outputWidth / aspectRatio;
+
+    // To maintain resolution, the output canvas dimensions should correspond
+    // to the real pixels of the source image visible in the crop area.
+    // If zoom is the ratio (UI pixels / original pixels), then original pixels = UI pixels / zoom.
+    const outputWidth = Math.round(CROP_WIDTH / zoom);
+    const outputHeight = Math.round(cropHeight / zoom);
 
     canvas.width = outputWidth;
     canvas.height = outputHeight;
@@ -107,6 +109,7 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // Math to map UI coordinates to Canvas coordinates
+      // scaleRatio is (Canvas Size / UI Size)
       const scaleRatio = outputWidth / CROP_WIDTH;
 
       const drawX = offset.x * scaleRatio;
@@ -114,10 +117,12 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
       const drawW = imageSize.width * zoom * scaleRatio;
       const drawH = imageSize.height * zoom * scaleRatio;
 
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(imageRef.current, drawX, drawY, drawW, drawH);
 
-      // Changed to image/webp for consistent output format
-      onCrop(canvas.toDataURL('image/webp', 0.9));
+      // Export as high-quality WebP
+      onCrop(canvas.toDataURL('image/webp', 0.95));
     }
   };
 
@@ -188,7 +193,7 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
             <ZoomOut size={16} className="text-gray-400" />
             <input
               type="range"
-              min="0.1"
+              min="0.01"
               max="3"
               step="0.01"
               value={zoom}
