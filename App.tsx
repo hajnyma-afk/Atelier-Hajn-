@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useParams } from 'react-router-dom';
 import { Post, ViewMode, Project, SiteContent } from './types';
@@ -265,6 +264,7 @@ const AppContent: React.FC = () => {
                 <div ref={projectsGridRef}>
                   <ProjectGrid
                     projects={projects}
+                    categories={siteContent.categories || []}
                     onSelect={handleSelectProject}
                   />
                 </div>

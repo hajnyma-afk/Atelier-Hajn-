@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Project, SiteContent } from '../types';
-import { Plus, Trash2, Edit2, LogOut, X, Upload, Image as ImageIcon, Crop, GripHorizontal, GripVertical, FileVideo, BarChart, Search, Tag, Video } from 'lucide-react';
+import { Plus, Trash2, Edit2, LogOut, X, Upload, Image as ImageIcon, Crop, GripHorizontal, GripVertical, FileVideo, BarChart, Search, Tag, Video, List, Check } from 'lucide-react';
 import { Button } from './Button';
 import { savePassword, uploadFile, uploadMultipleFiles, deleteProject, saveContent } from '../services/storage';
 import { ImageCropper } from './ImageCropper';
@@ -13,9 +13,7 @@ interface AdminDashboardProps {
   onLogout: () => void;
 }
 
-type Tab = 'projects' | 'atelier' | 'contact' | 'settings' | 'home' | 'seo';
-
-const CATEGORIES = ["Bydlení", "Občanské stavby", "Veřejný prostor", "Interiéry", "Urbanismus", "Ostatní"];
+type Tab = 'projects' | 'atelier' | 'contact' | 'settings' | 'home' | 'seo' | 'categories';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   projects,
@@ -33,6 +31,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [atelierForm, setAtelierForm] = useState(content.atelier);
   const [contactForm, setContactForm] = useState(content.contact);
   const [heroForm, setHeroForm] = useState(content.hero);
+  const [categoriesList, setCategoriesList] = useState(content.categories || []);
 
   // -- Settings State --
   const [newPassword, setNewPassword] = useState('');
@@ -42,6 +41,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // -- SEO State --
   const [seoForm, setSeoForm] = useState(content.seo || { title: '', keywords: '', description: '' });
   const [newKeyword, setNewKeyword] = useState('');
+
+  // -- Categories State --
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [renamingCategory, setRenamingCategory] = useState<string | null>(null);
+  const [renamingValue, setRenamingValue] = useState('');
 
   // -- Cropper State --
   const [cropper, setCropper] = useState<{
@@ -64,6 +68,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setHeroForm(content.hero);
     setAnalyticsForm(content.analytics || { googleId: '' });
     setSeoForm(content.seo || { title: '', keywords: '', description: '' });
+    setCategoriesList(content.categories || []);
   }, [content]);
 
   /**
@@ -175,9 +180,70 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       location: '',
       description: '',
       thumbnail: '',
-      category: '',
+      category: categoriesList[0] || '',
       images: []
     });
+  };
+
+  // -- Handlers: Categories --
+  const handleAddCategory = () => {
+    const trimmed = newCategoryName.trim();
+    if (trimmed && !categoriesList.includes(trimmed)) {
+      const newList = [...categoriesList, trimmed];
+      setCategoriesList(newList);
+      onUpdateContent({ ...content, categories: newList });
+      setNewCategoryName('');
+    }
+  };
+
+  const handleRemoveCategory = (cat: string) => {
+    if (window.confirm(`Opravdu chcete smazat kategorii "${cat}"? Projekty v této kategorii zůstanou, ale budou bez přiřazené kategorie.`)) {
+      const newList = categoriesList.filter(c => c !== cat);
+      setCategoriesList(newList);
+      onUpdateContent({ ...content, categories: newList });
+    }
+  };
+
+  const startRenaming = (cat: string) => {
+    setRenamingCategory(cat);
+    setRenamingValue(cat);
+  };
+
+  const handleRenameCategory = (oldName: string) => {
+    const trimmed = renamingValue.trim();
+    if (trimmed && trimmed !== oldName && !categoriesList.includes(trimmed)) {
+      const newList = categoriesList.map(c => c === oldName ? trimmed : c);
+      setCategoriesList(newList);
+
+      // Update projects that use this category
+      const updatedProjects = projects.map(p =>
+        p.category === oldName ? { ...p, category: trimmed } : p
+      );
+      onUpdateProjects(updatedProjects);
+
+      onUpdateContent({ ...content, categories: newList });
+      setRenamingCategory(null);
+    } else if (trimmed === oldName) {
+      setRenamingCategory(null);
+    } else if (categoriesList.includes(trimmed)) {
+      alert("Kategorie s tímto názvem již existuje.");
+    }
+  };
+
+  const handleCategoryDragStart = (e: React.DragEvent, index: number) => {
+    e.dataTransfer.setData('categoryIndex', index.toString());
+  };
+
+  const handleCategoryDrop = (e: React.DragEvent, dropIndex: number) => {
+    const dragIndex = parseInt(e.dataTransfer.getData('categoryIndex'));
+    if (dragIndex === dropIndex) return;
+
+    const newList = [...categoriesList];
+    const [draggedItem] = newList.splice(dragIndex, 1);
+    newList.splice(dropIndex, 0, draggedItem);
+
+    setCategoriesList(newList);
+    onUpdateContent({ ...content, categories: newList });
   };
 
   // -- Handlers: Project Reordering (Drag & Drop) --
@@ -445,12 +511,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleSaveContent = async () => {
     const updatedContent = {
+      ...content,
       atelier: atelierForm,
       contact: contactForm,
       branding: brandingForm,
       hero: heroForm,
       analytics: analyticsForm,
-      seo: seoForm
+      seo: seoForm,
+      categories: categoriesList
     };
 
     try {
@@ -542,6 +610,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             className={`px-4 py-2 text-sm uppercase tracking-widest ${activeTab === 'projects' ? 'border-b-2 border-black text-black' : 'text-gray-400 hover:text-gray-600'}`}
           >
             Projekty
+          </button>
+          <button
+            onClick={() => setActiveTab('categories')}
+            className={`px-4 py-2 text-sm uppercase tracking-widest ${activeTab === 'categories' ? 'border-b-2 border-black text-black' : 'text-gray-400 hover:text-gray-600'}`}
+          >
+            Kategorie
           </button>
           <button
             onClick={() => setActiveTab('atelier')}
@@ -836,7 +910,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           onChange={e => setEditingProject({...editingProject, category: e.target.value})}
                         >
                           <option value="">Vyberte kategorii</option>
-                          {CATEGORIES.map(cat => (
+                          {categoriesList.map(cat => (
                             <option key={cat} value={cat}>{cat}</option>
                           ))}
                         </select>
@@ -996,6 +1070,100 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </form>
               </div>
             )}
+          </div>
+        )}
+
+        {/* --- CATEGORIES TAB --- */}
+        {activeTab === 'categories' && (
+          <div className="bg-white p-8 rounded shadow-sm border border-gray-200 space-y-8 animate-in fade-in duration-300">
+            <div className="flex items-center gap-3 mb-4">
+                <List size={24} className="text-beige-600" />
+                <h2 className="text-xl">Správa kategorií projektů</h2>
+             </div>
+
+             <div className="max-w-2xl space-y-6">
+                <p className="text-sm text-gray-500">Tyto kategorie se zobrazují v navigační liště projektů. Přetažením můžete měnit jejich pořadí.</p>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    className={`${inputBaseStyle} flex-1`}
+                    value={newCategoryName}
+                    onChange={e => setNewCategoryName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
+                    placeholder="Název nové kategorie..."
+                  />
+                  <Button onClick={handleAddCategory}>Přidat</Button>
+                </div>
+
+                <div className="space-y-2 mt-6">
+                  {categoriesList.map((cat, index) => (
+                    <div
+                      key={cat}
+                      className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded group hover:border-black transition-colors cursor-move"
+                      draggable={!renamingCategory}
+                      onDragStart={(e) => handleCategoryDragStart(e, index)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => handleCategoryDrop(e, index)}
+                    >
+                      <div className="flex items-center gap-3 flex-1">
+                        <GripVertical size={16} className="text-gray-300" />
+                        {renamingCategory === cat ? (
+                          <div className="flex items-center gap-2 flex-1">
+                            <input
+                              autoFocus
+                              type="text"
+                              className="bg-white border border-black px-2 py-1 text-sm flex-1 outline-none"
+                              value={renamingValue}
+                              onChange={(e) => setRenamingValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleRenameCategory(cat);
+                                if (e.key === 'Escape') setRenamingCategory(null);
+                              }}
+                            />
+                            <button onClick={() => handleRenameCategory(cat)} className="text-green-600 hover:text-green-800">
+                              <Check size={18} />
+                            </button>
+                            <button onClick={() => setRenamingCategory(null)} className="text-red-400 hover:text-red-600">
+                              <X size={18} />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-sm">{cat}</span>
+                        )}
+                      </div>
+
+                      {!renamingCategory && (
+                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => startRenaming(cat)}
+                            className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                            title="Přejmenovat"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleRemoveCategory(cat)}
+                            className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                            title="Smazat"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {categoriesList.length === 0 && (
+                    <div className="py-12 text-center text-gray-400 italic bg-gray-50 rounded border border-dashed border-gray-200">
+                      Žádné vlastní kategorie nebyly definovány.
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-6">
+                   <Button onClick={handleSaveContent} className="px-12">Uložit kategorie</Button>
+                </div>
+             </div>
           </div>
         )}
 
