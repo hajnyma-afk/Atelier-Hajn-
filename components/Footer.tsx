@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Lock, Unlock } from 'lucide-react';
 import { ViewMode } from '../types';
 
@@ -13,13 +14,14 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, isAuthenticated }) =
       <p className="text-xs text-gray-400 tracking-widest uppercase">
         © {new Date().getFullYear()} ATELIER HAJNÝ.
       </p>
-      <button 
+      <Link
+        to={isAuthenticated ? '/admin' : '/login'}
         onClick={() => onNavigate(isAuthenticated ? 'admin' : 'login')}
         className="text-gray-200 hover:text-gray-900 transition-colors duration-300"
         aria-label="Admin Access"
       >
         {isAuthenticated ? <Unlock size={12} strokeWidth={1} /> : <Lock size={12} strokeWidth={1} />}
-      </button>
+      </Link>
     </footer>
   );
 };

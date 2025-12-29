@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate, useParams } from 'react-router-dom';
 import { Post, ViewMode, Project, SiteContent } from './types';
 import { loadPosts, savePosts, loadProjects, saveProjects, loadContent, saveContent, deletePost, deleteProject } from './services/storage';
 import { PostList } from './components/PostList';
@@ -14,23 +15,23 @@ import { Contact } from './components/Contact';
 import { Login } from './components/Login';
 import { AdminDashboard } from './components/AdminDashboard';
 import { ScrollToTop } from './components/ScrollToTop';
+import { createSlug } from './utils/slug';
 
-const App: React.FC = () => {
+// Inner App component that uses React Router hooks
+const AppContent: React.FC = () => {
   // -- Data State --
   const [posts, setPosts] = useState<Post[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [siteContent, setSiteContent] = useState<SiteContent | null>(null);
-
-  // -- View State --
-  const [view, setView] = useState<ViewMode>('projects');
-  const [activePostId, setActivePostId] = useState<string | null>(null);
-  const [activeProject, setActiveProject] = useState<Project | null>(null);
 
   // -- Auth State --
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // -- Refs --
   const projectsGridRef = useRef<HTMLDivElement>(null);
+
+  // -- Router hooks --
+  const navigate = useNavigate();
 
   // Load initial data
   useEffect(() => {
@@ -169,13 +170,7 @@ const App: React.FC = () => {
       published: false,
     };
     setPosts([newPost, ...posts]);
-    setActivePostId(newPost.id);
-    setView('editor');
-  };
-
-  const handleSelectPost = (post: Post) => {
-    setActivePostId(post.id);
-    setView('editor');
+    navigate(`/blog/${newPost.id}`);
   };
 
   const handleUpdatePost = async (updatedPost: Post) => {
@@ -193,8 +188,7 @@ const App: React.FC = () => {
       try {
         await deletePost(id);
         setPosts(posts.filter(p => p.id !== id));
-        setView('list');
-        setActivePostId(null);
+        navigate('/blog');
       } catch (error) {
         console.error('Failed to delete post:', error);
         alert('Nepodařilo se smazat příspěvek.');
@@ -204,35 +198,42 @@ const App: React.FC = () => {
 
   // -- Project Logic --
   const handleSelectProject = (project: Project) => {
-    setActiveProject(project);
-    setView('gallery');
+    const slug = createSlug(project.title || 'project');
+    navigate(`/project/${slug}`);
   };
 
   // -- Navigation --
   const handleNavigate = (newView: ViewMode) => {
     // Prevent access to admin if not logged in
     if (newView === 'admin' && !isAuthenticated) {
-      setView('login');
+      navigate('/login');
       return;
     }
-    setView(newView);
-    // Clear active selections when navigating top level
-    if (newView !== 'gallery') {
-      setActiveProject(null);
-    }
-    if (newView !== 'editor') {
-      setActivePostId(null);
-    }
+
+    // Map ViewMode to routes
+    const routeMap: Record<ViewMode, string> = {
+      'projects': '/',
+      'atelier': '/atelier',
+      'contact': '/contact',
+      'gallery': '/project', // This will be handled by project ID route
+      'login': '/login',
+      'admin': '/admin',
+      'list': '/blog',
+      'editor': '/blog/edit', // This will be handled by post ID route
+      'read': '/blog' // This will be handled by post ID route
+    };
+
+    navigate(routeMap[newView] || '/');
   };
 
   const handleLogin = () => {
     setIsAuthenticated(true);
-    setView('admin');
+    navigate('/admin');
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
-    setView('projects');
+    navigate('/');
   };
 
   const handleScrollToProjects = () => {
@@ -242,8 +243,6 @@ const App: React.FC = () => {
   // Ensure content is loaded before rendering
   if (!siteContent) return null;
 
-  const activePost = posts.find(p => p.id === activePostId);
-
   return (
     <div className="min-h-screen bg-white text-gray-900 selection:bg-beige-600 selection:text-white flex flex-col">
       <Header
@@ -252,78 +251,190 @@ const App: React.FC = () => {
       />
 
       <main className="flex-1 flex flex-col relative">
-        {/* Projects View (Default Homepage) */}
-        {view === 'projects' && (
-          <>
-            <Hero
-              onScrollDown={handleScrollToProjects}
-              onContact={() => setView('contact')}
-              content={siteContent.hero}
-            />
-            <div ref={projectsGridRef}>
-              <ProjectGrid
+        <Routes>
+          {/* Homepage - Projects View */}
+          <Route
+            path="/"
+            element={
+              <>
+                <Hero
+                  onScrollDown={handleScrollToProjects}
+                  onContact={() => navigate('/contact')}
+                  content={siteContent.hero}
+                />
+                <div ref={projectsGridRef}>
+                  <ProjectGrid
+                    projects={projects}
+                    onSelect={handleSelectProject}
+                  />
+                </div>
+              </>
+            }
+          />
+
+          {/* Atelier / About View */}
+          <Route
+            path="/atelier"
+            element={<Atelier content={siteContent.atelier} />}
+          />
+
+          {/* Contact View */}
+          <Route
+            path="/contact"
+            element={<Contact content={siteContent.contact} />}
+          />
+
+          {/* Project Gallery */}
+          <Route
+            path="/project/:projectSlug"
+            element={
+              <ProjectGalleryWrapper
                 projects={projects}
                 onSelect={handleSelectProject}
+                onClose={() => navigate('/')}
               />
-            </div>
-          </>
-        )}
-
-        {/* Atelier / About View */}
-        {view === 'atelier' && <Atelier content={siteContent.atelier} />}
-
-        {/* Contact View */}
-        {view === 'contact' && <Contact content={siteContent.contact} />}
-
-        {/* Project Gallery Overlay */}
-        {view === 'gallery' && activeProject && (
-          <ProjectGallery
-            project={activeProject}
-            allProjects={projects}
-            onSelect={handleSelectProject}
-            onClose={() => setView('projects')}
+            }
           />
-        )}
 
-        {/* Login */}
-        {view === 'login' && (
-          <Login onLogin={handleLogin} onCancel={() => setView('projects')} />
-        )}
-
-        {/* Admin Dashboard */}
-        {view === 'admin' && isAuthenticated && (
-          <AdminDashboard
-            projects={projects}
-            content={siteContent}
-            onUpdateProjects={setProjects}
-            onUpdateContent={setSiteContent}
-            onLogout={handleLogout}
+          {/* Login */}
+          <Route
+            path="/login"
+            element={
+              <Login
+                onLogin={handleLogin}
+                onCancel={() => navigate('/')}
+              />
+            }
           />
-        )}
 
-        {/* Blog/CMS List View - keeping legacy functionality hidden/optional or integrated if needed */}
-        {view === 'list' && (
-          <PostList
-            posts={posts}
-            onSelect={handleSelectPost}
-            onCreate={handleCreatePost}
+          {/* Admin Dashboard */}
+          <Route
+            path="/admin/*"
+            element={
+              isAuthenticated ? (
+                <AdminDashboard
+                  projects={projects}
+                  content={siteContent}
+                  onUpdateProjects={setProjects}
+                  onUpdateContent={setSiteContent}
+                  onLogout={handleLogout}
+                />
+              ) : (
+                <Login
+                  onLogin={handleLogin}
+                  onCancel={() => navigate('/')}
+                />
+              )
+            }
           />
-        )}
 
-        {/* Blog Editor */}
-        {view === 'editor' && activePost && (
-          <Editor
-            post={activePost}
-            onSave={handleUpdatePost}
-            onDelete={handleDeletePost}
-            onBack={() => setView('list')}
+          {/* Blog/CMS List View */}
+          <Route
+            path="/blog"
+            element={
+              <PostList
+                posts={posts}
+                onSelect={(post) => navigate(`/blog/${post.id}`)}
+                onCreate={handleCreatePost}
+              />
+            }
           />
-        )}
+
+          {/* Blog Editor */}
+          <Route
+            path="/blog/:postId"
+            element={
+              <EditorWrapper
+                posts={posts}
+                onUpdatePost={handleUpdatePost}
+                onDeletePost={handleDeletePost}
+                onBack={() => navigate('/blog')}
+              />
+            }
+          />
+        </Routes>
       </main>
 
       <Footer onNavigate={handleNavigate} isAuthenticated={isAuthenticated} />
       <ScrollToTop />
     </div>
+  );
+};
+
+// Wrapper component for ProjectGallery to access route params
+const ProjectGalleryWrapper: React.FC<{
+  projects: Project[];
+  onSelect: (project: Project) => void;
+  onClose: () => void;
+}> = ({ projects, onSelect, onClose }) => {
+  const { projectSlug } = useParams<{ projectSlug: string }>();
+  const project = projects.find(p => {
+    const projectSlugFromTitle = createSlug(p.title || 'project');
+    return projectSlugFromTitle === projectSlug;
+  });
+
+  if (!project) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl mb-4">Projekt nenalezen</h1>
+          <button onClick={onClose} className="text-blue-600 hover:underline">
+            Zpět na přehled
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <ProjectGallery
+      project={project}
+      allProjects={projects}
+      onSelect={onSelect}
+      onClose={onClose}
+    />
+  );
+};
+
+// Wrapper component for Editor to access route params
+const EditorWrapper: React.FC<{
+  posts: Post[];
+  onUpdatePost: (post: Post) => void;
+  onDeletePost: (id: string) => void;
+  onBack: () => void;
+}> = ({ posts, onUpdatePost, onDeletePost, onBack }) => {
+  const { postId } = useParams<{ postId: string }>();
+  const post = posts.find(p => p.id === postId);
+
+  if (!post) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl mb-4">Příspěvek nenalezen</h1>
+          <button onClick={onBack} className="text-blue-600 hover:underline">
+            Zpět na seznam
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Editor
+      post={post}
+      onSave={onUpdatePost}
+      onDelete={onDeletePost}
+      onBack={onBack}
+    />
+  );
+};
+
+// Main App component with Router
+const App: React.FC = () => {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
   );
 };
 

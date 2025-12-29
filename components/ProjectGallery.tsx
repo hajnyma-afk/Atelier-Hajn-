@@ -1,7 +1,9 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Project } from '../types';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { createSlug } from '../utils/slug';
 
 interface ProjectGalleryProps {
   project: Project;
@@ -11,14 +13,15 @@ interface ProjectGalleryProps {
 }
 
 export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProjects, onClose, onSelect }) => {
+  const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);
-  
+
   // -- Infinite Swipe State --
   const [baseTranslate, setBaseTranslate] = useState(-100);
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [enableTransition, setEnableTransition] = useState(false);
-  
+
   const touchStart = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -28,7 +31,7 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
   // Scroll to top when project changes
   useEffect(() => {
     window.scrollTo(0, 0);
-    setCurrentIndex(0); 
+    setCurrentIndex(0);
   }, [project.id]);
 
   const relatedProjects = useMemo(() => {
@@ -48,7 +51,7 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
     currentIndex,
     getWrappedIndex(currentIndex + 1)
   ];
-  
+
   const updateIndex = (newIndex: number) => {
       setCurrentIndex(getWrappedIndex(newIndex));
   };
@@ -85,7 +88,7 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
   const onTouchStart = (e: React.TouchEvent) => {
     if (project.images.length <= 1) return;
     if (enableTransition) return;
-    
+
     touchStart.current = e.touches[0].clientX;
     setIsDragging(true);
     setDragOffset(0);
@@ -121,7 +124,7 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
       let targetTranslate = -100;
       if (target === 'next') targetTranslate = -200;
       if (target === 'prev') targetTranslate = 0;
-      
+
       setBaseTranslate(targetTranslate);
       setDragOffset(0);
 
@@ -138,7 +141,7 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
           }, 500);
       }
   };
-  
+
   useEffect(() => {
       return () => {
           if (timerRef.current) clearTimeout(timerRef.current);
@@ -148,7 +151,7 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
   return (
     <div className="w-full bg-white animate-in fade-in duration-300 pb-12">
       <div className="max-w-[95%] md:max-w-[75%] mx-auto px-6 py-6 landscape:hidden lg:landscape:block">
-        <button 
+        <button
           onClick={onClose}
           className="group flex items-center gap-2 text-sm uppercase tracking-widest text-gray-500 hover:text-black transition-colors"
         >
@@ -158,14 +161,14 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
       </div>
 
       <div className="flex flex-col">
-        <div 
+        <div
           className="relative w-full h-[65vh] landscape:fixed landscape:inset-0 landscape:h-full landscape:z-[60] lg:h-[calc(100vh-180px)] lg:landscape:h-[calc(100vh-180px)] lg:landscape:relative lg:landscape:z-auto lg:landscape:inset-auto bg-white group touch-pan-y landscape:touch-none lg:landscape:touch-pan-y overflow-hidden"
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
         >
           {project.images.length > 1 && (
-            <button 
+            <button
               onClick={onDesktopPrev}
               className="absolute left-4 top-1/2 -translate-y-1/2 p-3 hover:bg-white/90 rounded-full transition-colors z-20 hidden md:block opacity-0 group-hover:opacity-100 duration-300"
             >
@@ -174,10 +177,10 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
           )}
 
           {/* Carousel Track */}
-          <div 
+          <div
             className={`flex h-full w-full ease-out md:transition-none ${enableTransition ? 'transition-transform duration-500' : ''}`}
-            style={{ 
-                transform: `translateX(calc(${baseTranslate}% + ${dragOffset}px))` 
+            style={{
+                transform: `translateX(calc(${baseTranslate}% + ${dragOffset}px))`
             }}
           >
              {activeSlideIndices.map((imgIndex, windowPos) => {
@@ -188,17 +191,17 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
                  return (
                     <div key={`${imgIndex}-${windowPos}`} className="w-full h-full flex-shrink-0 relative">
                        {isVid ? (
-                         <video 
-                           src={src} 
-                           autoPlay 
-                           loop 
-                           muted 
+                         <video
+                           src={src}
+                           autoPlay
+                           loop
+                           muted
                            playsInline
                            className="w-full h-full object-contain select-none bg-white"
                          />
                        ) : (
-                         <img 
-                          src={src} 
+                         <img
+                          src={src}
                           alt={`${project.title} view`}
                           className="w-full h-full object-contain select-none"
                           draggable={false}
@@ -210,14 +213,14 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
           </div>
 
           {project.images.length > 1 && (
-            <button 
+            <button
               onClick={onDesktopNext}
               className="absolute right-4 top-1/2 -translate-y-1/2 p-3 hover:bg-white/90 rounded-full transition-colors z-20 hidden md:block opacity-0 group-hover:opacity-100 duration-300"
             >
               <ChevronRight size={32} strokeWidth={1} />
             </button>
           )}
-          
+
           <div className="absolute bottom-4 left-0 right-0 text-center text-xs text-gray-500 tracking-widest md:hidden">
             {String(currentIndex + 1).padStart(2, '0')} / {String(project.images.length).padStart(2, '0')}
           </div>
@@ -232,7 +235,7 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
                 <span>{project.location || 'Lokace'}</span>
               </div>
             </div>
-            
+
             <div className="prose prose-lg prose-gray max-w-none text-gray-600 leading-relaxed">
               <p>
                 {project.description || "Minimalistický přístup k prostoru definuje tento projekt. Čisté linie, přirozené světlo a upřímné materiály vytvářejí atmosféru klidu a soustředění."}
@@ -244,14 +247,18 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
                 <h3 className="text-sm uppercase tracking-widest text-gray-400 mb-8">Další projekty</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {relatedProjects.map((p) => (
-                    <div 
-                      key={p.id} 
-                      onClick={() => onSelect(p)}
+                    <div
+                      key={p.id}
+                      onClick={() => {
+                        onSelect(p);
+                        const slug = createSlug(p.title || 'project');
+                        navigate(`/project/${slug}`);
+                      }}
                       className="group cursor-pointer flex flex-col gap-3"
                     >
                       <div className="relative w-full aspect-[3/2] overflow-hidden bg-gray-100">
-                        <img 
-                          src={p.thumbnail} 
+                        <img
+                          src={p.thumbnail}
                           alt={p.title}
                           className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                         />

@@ -83,7 +83,7 @@ export const Contact: React.FC<ContactProps> = ({ content }) => {
                   className="w-full h-[500px]"
                   frameBorder="0"
                   scrolling="no"
-                  allowtransparency="true"
+                  allowTransparency={true}
                   allow="encrypted-media"
                   title="Instagram Feed"
                 ></iframe>
