@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ArrowDown } from 'lucide-react';
 import { SiteContent } from '../types';
@@ -45,29 +44,34 @@ export const Hero: React.FC<HeroProps> = ({ onScrollDown, onContact, content }) 
   return (
     <div className="relative w-full h-[85vh] overflow-hidden bg-white">
       {/* Background Media */}
-      <div className="absolute inset-0">
-        {content.video ? (
+      <div className="absolute inset-0 bg-gray-50">
+        {/* Placeholder/Static Image - Always rendered if exists */}
+        {content.image && (
+          <img 
+            src={content.image} 
+            alt="Hero Background" 
+            className="absolute inset-0 w-full h-full object-cover z-0"
+          />
+        )}
+        
+        {/* Hero Video - Fades in over the image once loaded */}
+        {content.video && (
           <video 
             src={content.video} 
+            poster={content.image} // Browser native placeholder
             autoPlay 
             loop 
             muted 
             playsInline 
-            className="w-full h-full object-cover transition-opacity duration-1000"
+            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 z-10"
             onLoadedData={(e) => (e.currentTarget.style.opacity = '1')}
             style={{ opacity: 0 }}
           />
-        ) : content.image ? (
-          <img 
-            src={content.image} 
-            alt="Hero Background" 
-            className="w-full h-full object-cover"
-          />
-        ) : null}
+        )}
       </div>
 
       {/* Content Container - Aligned with Grid */}
-      <div className="absolute inset-0 pointer-events-none">
+      <div className="absolute inset-0 pointer-events-none z-20">
         <div className={`w-full h-full max-w-[95%] md:max-w-[75%] mx-auto px-6 pt-32 pb-24 flex flex-col ${positionClasses[pos] || positionClasses['center']}`}>
           <div 
             className={`max-w-3xl flex flex-col space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-1000 pointer-events-auto ${isCentered ? 'items-center' : isRight ? 'items-end' : 'items-start'}`}
@@ -94,7 +98,7 @@ export const Hero: React.FC<HeroProps> = ({ onScrollDown, onContact, content }) 
       {/* Scroll Indicator */}
       <button 
         onClick={onScrollDown}
-        className="absolute bottom-10 left-1/2 -translate-x-1/2 hover:opacity-60 transition-opacity animate-bounce hidden md:block z-10 p-2 cursor-pointer"
+        className="absolute bottom-10 left-1/2 -translate-x-1/2 hover:opacity-60 transition-opacity animate-bounce hidden md:block z-30 p-2 cursor-pointer"
         aria-label="Posunout dolů"
         style={{ color: textColor }}
       >

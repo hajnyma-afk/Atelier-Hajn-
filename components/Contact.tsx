@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { SiteContent } from '../types';
 
@@ -7,6 +6,8 @@ interface ContactProps {
 }
 
 export const Contact: React.FC<ContactProps> = ({ content }) => {
+  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent("Atelier Hajný s.r.o., Nitranská 19, 130 00 Praha 3")}`;
+
   return (
     <div className="w-full max-w-[95%] md:max-w-[75%] mx-auto px-6 py-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="max-w-5xl">
@@ -18,9 +19,14 @@ export const Contact: React.FC<ContactProps> = ({ content }) => {
             <div className="space-y-12">
               <div>
                 <h3 className="text-sm uppercase tracking-widest text-gray-400 mb-4">Adresa</h3>
-                <p className="text-xl text-gray-900 whitespace-pre-line leading-relaxed">
+                <a 
+                  href={googleMapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xl text-gray-900 whitespace-pre-line leading-relaxed hover:text-beige-600 transition-colors block"
+                >
                   {content.address}
-                </p>
+                </a>
               </div>
 
               <div>

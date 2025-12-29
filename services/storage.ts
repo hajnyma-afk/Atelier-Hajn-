@@ -1,4 +1,3 @@
-
 import { Post, Project, SiteContent } from '../types';
 
 const STORAGE_KEYS = {
@@ -133,7 +132,7 @@ const DEFAULT_CONTENT: SiteContent = {
     image: "https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2940&auto=format&fit=crop"
   },
   contact: {
-    address: "Pernerova 35, 186 00 Praha 8, Česká Republika",
+    address: "Nitranská 19, 130 00 Praha 3, Česká Republika",
     email: "hello@zencms.studio",
     phone: "+420 123 456 789"
   }
