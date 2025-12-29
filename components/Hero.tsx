@@ -85,7 +85,7 @@ export const Hero: React.FC<HeroProps> = ({ onScrollDown, onContact, content }) 
             {content.subtitle && (
               <button 
                 onClick={onContact}
-                className={`${sizeClasses[size].subtitle} ${subtitleAlign} font-light tracking-wide max-w-xl leading-relaxed hover:opacity-100 transition-opacity cursor-pointer block outline-none border-none bg-transparent p-0`}
+                className={`${sizeClasses[size].subtitle} ${subtitleAlign} font-light tracking-wide max-w-xl leading-relaxed hover:opacity-100 hover:!text-beige-600 transition-all duration-300 cursor-pointer block outline-none border-none bg-transparent p-0`}
                 style={{ opacity: 0.8, color: textColor }}
               >
                 {content.subtitle}
