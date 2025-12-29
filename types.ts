@@ -32,6 +32,7 @@ export interface SiteContent {
     keywords: string;
     description: string;
   };
+  categories: string[];
   hero: {
     title: string;
     subtitle: string;

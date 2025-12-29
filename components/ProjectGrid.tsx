@@ -1,17 +1,17 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Project } from '../types';
 
 interface ProjectGridProps {
   projects: Project[];
+  categories: string[];
   onSelect: (project: Project) => void;
 }
 
-const CATEGORIES = ["Vše", "Bydlení", "Občanské stavby", "Veřejný prostor", "Interiéry", "Urbanismus", "Ostatní"];
-
-export const ProjectGrid: React.FC<ProjectGridProps> = ({ projects, onSelect }) => {
+export const ProjectGrid: React.FC<ProjectGridProps> = ({ projects, categories, onSelect }) => {
   const [activeCategory, setActiveCategory] = useState("Vše");
   const observerRef = useRef<IntersectionObserver | null>(null);
+
+  const filterCategories = ["Vše", ...categories];
 
   const filteredProjects = activeCategory === "Vše" 
     ? projects 
@@ -48,7 +48,7 @@ export const ProjectGrid: React.FC<ProjectGridProps> = ({ projects, onSelect }) 
     <div className="max-w-[95%] md:max-w-[75%] mx-auto px-6 py-8">
       {/* Filter Navigation */}
       <div className="flex flex-wrap gap-4 md:gap-8 justify-center mb-12 animate-in fade-in slide-in-from-top-4 duration-700">
-        {CATEGORIES.map((cat) => (
+        {filterCategories.map((cat) => (
           <button
             key={cat}
             onClick={() => setActiveCategory(cat)}

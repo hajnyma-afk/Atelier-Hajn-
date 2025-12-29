@@ -3,7 +3,7 @@ import { Post, Project, SiteContent } from '../types';
 const STORAGE_KEYS = {
   POSTS: 'zencms_posts',
   PROJECTS: 'zencms_projects_v5', // Updated key to force refresh with thumbnails
-  CONTENT: 'zencms_content',
+  CONTENT: 'zencms_content_v2', // Updated key for categories
   PASSWORD: 'zencms_password'
 };
 
@@ -109,6 +109,7 @@ const DEFAULT_CONTENT: SiteContent = {
     keywords: 'architektura, design, minimalismus, atelier hajny, projekty vily',
     description: 'ATELIER HAJNÝ se zaměřuje na architekturu ticha a prostoru. Věříme, že prázdnota není absencí, ale příležitostí.'
   },
+  categories: ["Bydlení", "Občanské stavby", "Veřejný prostor", "Interiéry", "Urbanismus", "Ostatní"],
   hero: {
     title: "Architektura ticha \n a prostoru",
     subtitle: "Tvoříme místa, která dýchají. Hledáme rovnováhu mezi světlem, hmotou a prázdnotou.",
@@ -186,6 +187,7 @@ export const loadContent = (): SiteContent => {
         ...DEFAULT_CONTENT.seo,
         ...(parsed.seo || {})
       },
+      categories: parsed.categories || DEFAULT_CONTENT.categories,
       hero: {
         ...DEFAULT_CONTENT.hero,
         ...(parsed.hero || {}),
