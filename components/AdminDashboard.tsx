@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Project, SiteContent } from '../types';
 import { Plus, Trash2, Edit2, LogOut, X, Upload, Image as ImageIcon, Crop, GripHorizontal, GripVertical, FileVideo, BarChart, Search, Tag, Video } from 'lucide-react';
 import { Button } from './Button';
-import { savePassword, uploadFile, uploadMultipleFiles } from '../services/storage';
+import { savePassword, uploadFile, uploadMultipleFiles, deleteProject, saveContent } from '../services/storage';
 import { ImageCropper } from './ImageCropper';
 
 interface AdminDashboardProps {
@@ -155,9 +155,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setEditingProject(null);
   };
 
-  const handleDeleteProject = (id: string) => {
+  const handleDeleteProject = async (id: string) => {
     if (window.confirm('Opravdu chcete tento projekt smazat?')) {
-      onUpdateProjects(projects.filter(p => p.id !== id));
+      try {
+        await deleteProject(id);
+        onUpdateProjects(projects.filter(p => p.id !== id));
+      } catch (error) {
+        console.error('Failed to delete project:', error);
+        alert('Nepodařilo se smazat projekt. Zkuste to prosím znovu.');
+      }
     }
   };
 
@@ -437,16 +443,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setCropper(null);
   };
 
-  const handleSaveContent = () => {
-    onUpdateContent({
+  const handleSaveContent = async () => {
+    const updatedContent = {
       atelier: atelierForm,
       contact: contactForm,
       branding: brandingForm,
       hero: heroForm,
       analytics: analyticsForm,
       seo: seoForm
-    });
-    alert('Obsah uložen');
+    };
+
+    try {
+      await saveContent(updatedContent);
+      onUpdateContent(updatedContent);
+      alert('Obsah uložen');
+    } catch (error) {
+      console.error('Failed to save content:', error);
+      alert('Nepodařilo se uložit obsah. Zkuste to prosím znovu.');
+    }
   };
 
   // -- Handlers: SEO Keywords --
