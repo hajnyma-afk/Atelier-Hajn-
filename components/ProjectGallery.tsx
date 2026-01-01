@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Project } from '../types';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -22,8 +21,15 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
   const touchStart = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Helper to check if a source string is a video
+  // Helper to check if a source string is a video or YouTube link
   const isVideoSource = (src: string) => src.startsWith('data:video/') || src.endsWith('.mp4') || src.endsWith('.webm');
+  const isYouTubeSource = (src: string) => src.includes('youtube.com') || src.includes('youtu.be');
+  
+  const getYouTubeId = (url: string) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
 
   // Scroll to top when project changes
   useEffect(() => {
@@ -184,10 +190,20 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
                  const src = project.images[imgIndex];
                  if (!src) return null;
                  const isVid = isVideoSource(src);
+                 const isYT = isYouTubeSource(src);
 
                  return (
                     <div key={`${imgIndex}-${windowPos}`} className="w-full h-full flex-shrink-0 relative">
-                       {isVid ? (
+                       {isYT ? (
+                         <div className="w-full h-full bg-black flex items-center justify-center">
+                            <iframe 
+                              src={`https://www.youtube.com/embed/${getYouTubeId(src)}?autoplay=0&mute=0&rel=0`}
+                              className="w-full h-full border-none max-w-full"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                            />
+                         </div>
+                       ) : isVid ? (
                          <video 
                            src={src} 
                            autoPlay 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Project, SiteContent } from '../types';
-import { Plus, Trash2, Edit2, LogOut, X, Upload, Image as ImageIcon, Crop, GripHorizontal, GripVertical, FileVideo, BarChart, Search, Tag, Video, List, Check } from 'lucide-react';
+import { Plus, Trash2, Edit2, LogOut, X, Upload, Image as ImageIcon, Crop, GripHorizontal, GripVertical, FileVideo, BarChart, Search, Tag, Video, List, Check, Youtube } from 'lucide-react';
 import { Button } from './Button';
 import { savePassword } from '../services/storage';
 import { ImageCropper } from './ImageCropper';
@@ -41,6 +41,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // -- SEO State --
   const [seoForm, setSeoForm] = useState(content.seo || { title: '', keywords: '', description: '' });
   const [newKeyword, setNewKeyword] = useState('');
+
+  // -- YouTube Link State --
+  const [ytLink, setYtLink] = useState('');
 
   // -- Categories State --
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -127,8 +130,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
   };
 
-  // Helper to check if a source string is a video
+  // Helper to check if a source string is a video or YouTube link
   const isVideoSource = (src: string) => src.startsWith('data:video/') || src.endsWith('.mp4') || src.endsWith('.webm');
+  const isYouTubeSource = (src: string) => src.includes('youtube.com') || src.includes('youtu.be');
+  
+  const getYouTubeId = (url: string) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
+
+  const getYouTubeThumbnail = (url: string) => {
+    const videoId = getYouTubeId(url);
+    return videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : null;
+  };
 
   // -- Handlers: Projects --
   const handleSaveProject = (e: React.FormEvent) => {
@@ -331,6 +346,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       } catch (error) {
         alert(typeof error === 'string' ? error : "Chyba při nahrávání videí.");
       }
+    }
+  };
+
+  const handleAddYouTube = () => {
+    const videoId = getYouTubeId(ytLink.trim());
+    if (!videoId) {
+      alert("Neplatný YouTube odkaz.");
+      return;
+    }
+    if (editingProject) {
+      setEditingProject({
+        ...editingProject,
+        images: [...editingProject.images, ytLink.trim()]
+      });
+      setYtLink('');
     }
   };
 
@@ -949,35 +979,54 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                       {/* Gallery Upload & Reorder */}
                       <div className="space-y-2">
-                        <div className="flex justify-between items-center mb-2">
-                          <label className="text-xs uppercase tracking-widest text-gray-500">Galerie médií</label>
-                          <div className="flex gap-4">
-                            <label className="cursor-pointer text-xs uppercase tracking-widest text-blue-600 hover:text-black transition-colors flex items-center gap-1">
-                              <ImageIcon size={12} /> Přidat fotky
-                              <input 
-                                type="file" 
-                                multiple 
-                                accept="image/*"
-                                onChange={handleGalleryUpload}
-                                className="hidden"
-                              />
-                            </label>
-                            <label className="cursor-pointer text-xs uppercase tracking-widest text-teal-600 hover:text-black transition-colors flex items-center gap-1">
-                              <Video size={12} /> Přidat video
-                              <input 
-                                type="file" 
-                                multiple 
-                                accept="video/mp4,video/webm"
-                                onChange={handleGalleryVideoUpload}
-                                className="hidden"
-                              />
-                            </label>
+                        <div className="flex flex-col gap-3 mb-2">
+                          <div className="flex justify-between items-center">
+                            <label className="text-xs uppercase tracking-widest text-gray-500">Galerie médií</label>
+                            <div className="flex gap-4">
+                              <label className="cursor-pointer text-xs uppercase tracking-widest text-blue-600 hover:text-black transition-colors flex items-center gap-1">
+                                <ImageIcon size={12} /> Přidat fotky
+                                <input 
+                                  type="file" 
+                                  multiple 
+                                  accept="image/*"
+                                  onChange={handleGalleryUpload}
+                                  className="hidden"
+                                />
+                              </label>
+                              <label className="cursor-pointer text-xs uppercase tracking-widest text-teal-600 hover:text-black transition-colors flex items-center gap-1">
+                                <Video size={12} /> Přidat video
+                                <input 
+                                  type="file" 
+                                  multiple 
+                                  accept="video/mp4,video/webm"
+                                  onChange={handleGalleryVideoUpload}
+                                  className="hidden"
+                                />
+                              </label>
+                            </div>
+                          </div>
+                          
+                          {/* YouTube Input */}
+                          <div className="flex gap-2">
+                             <input 
+                               type="text" 
+                               className={`${inputBaseStyle} flex-1 text-xs`} 
+                               placeholder="Vložit YouTube odkaz..."
+                               value={ytLink}
+                               onChange={(e) => setYtLink(e.target.value)}
+                             />
+                             <Button type="button" onClick={handleAddYouTube} variant="secondary" className="px-3">
+                               <Plus size={14} />
+                             </Button>
                           </div>
                         </div>
                         
                         <div className="grid grid-cols-3 gap-2">
                           {editingProject.images.map((img, idx) => {
                             const isVid = isVideoSource(img);
+                            const isYT = isYouTubeSource(img);
+                            const ytThumb = isYT ? getYouTubeThumbnail(img) : null;
+
                             return (
                               <div 
                                 key={idx} 
@@ -987,7 +1036,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 onDragOver={(e) => handleDragOver(e, idx)}
                                 onDrop={(e) => handleDrop(e, idx)}
                               >
-                                {isVid ? (
+                                {isYT ? (
+                                  <div className="w-full h-full bg-black relative">
+                                    {ytThumb ? (
+                                      <img src={ytThumb} className="w-full h-full object-cover opacity-70" alt="YT" />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center">
+                                         <Youtube size={24} className="text-white opacity-40" />
+                                      </div>
+                                    )}
+                                    <div className="absolute top-1 left-1 bg-red-600 text-white p-1 rounded shadow-sm">
+                                      <Youtube size={12} />
+                                    </div>
+                                  </div>
+                                ) : isVid ? (
                                   <div className="w-full h-full bg-black relative">
                                     <video src={img} muted className="w-full h-full object-cover" />
                                     <div className="absolute top-1 left-1 bg-black/50 text-white p-1 rounded">
@@ -1170,7 +1232,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                <div className="space-y-4">
                   <label className="text-xs uppercase tracking-widest text-gray-500">Hlavní obrázek</label>
                    {/* 3:4 Aspect Ratio Preview for Atelier */}
-                   <div className="relative group w-full max-w-sm mx-auto aspect-[3/4] bg-gray-50 border-2 border-dashed border-gray-300 rounded flex flex-col items-center justify-center cursor-pointer hover:border-black hover:bg-gray-100 transition-colors overflow-hidden">
+                   <div className="relative group w-full max-sm mx-auto aspect-[3/4] bg-gray-50 border-2 border-dashed border-gray-300 rounded flex flex-col items-center justify-center cursor-pointer hover:border-black hover:bg-gray-100 transition-colors overflow-hidden">
                       <input 
                         type="file" 
                         accept="image/*"
