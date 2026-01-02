@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Project } from '../types';
+import { Project, AtelierBlock } from '../types';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ProjectGalleryProps {
@@ -157,6 +157,72 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
       }
   }, []);
 
+  const renderBlock = (block: AtelierBlock) => {
+    const Wrapper = block.link ? 'a' : 'div';
+    const wrapperProps = block.link 
+      ? { href: block.link, target: '_blank', rel: 'noopener noreferrer', className: 'block cursor-pointer hover:opacity-80 transition-opacity' }
+      : { className: 'block' };
+
+    if (block.type === 'image') {
+      return (
+        <Wrapper key={block.id} {...wrapperProps}>
+          <div className="w-full mb-8">
+            <img 
+              src={block.content} 
+              alt="Project content" 
+              className="w-full h-auto object-contain" 
+            />
+          </div>
+        </Wrapper>
+      );
+    }
+
+    if (block.type === 'video') {
+      return (
+        <Wrapper key={block.id} {...wrapperProps}>
+          <div className="w-full mb-8">
+            <video 
+              src={block.content} 
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="w-full h-auto" 
+            />
+          </div>
+        </Wrapper>
+      );
+    }
+
+    if (block.type === 'youtube') {
+      return (
+        <Wrapper key={block.id} {...wrapperProps}>
+          <div className="w-full aspect-video mb-8 bg-gray-100">
+             <iframe 
+                src={getYouTubeEmbedUrl(block.content)}
+                className="w-full h-full border-0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                title="YouTube video"
+              />
+          </div>
+        </Wrapper>
+      );
+    }
+
+    if (block.type === 'text') {
+       return (
+         <Wrapper key={block.id} {...wrapperProps}>
+           <div className="whitespace-pre-wrap text-lg leading-relaxed text-gray-600 mb-8">
+             {block.content}
+           </div>
+         </Wrapper>
+       );
+    }
+
+    return null;
+  };
+
   return (
     <div className="w-full bg-white animate-in fade-in duration-300 pb-12">
       <div className="max-w-[95%] md:max-w-[75%] mx-auto px-6 py-6 landscape:hidden lg:landscape:block">
@@ -170,6 +236,7 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
       </div>
 
       <div className="flex flex-col">
+        {/* Gallery Carousel */}
         <div 
           className="relative w-full h-[65vh] landscape:fixed landscape:inset-0 landscape:h-full landscape:z-[60] lg:h-[calc(100vh-180px)] lg:landscape:h-[calc(100vh-180px)] lg:landscape:relative lg:landscape:z-auto lg:landscape:inset-auto bg-white group touch-pan-y landscape:touch-none lg:landscape:touch-pan-y overflow-hidden"
           onTouchStart={onTouchStart}
@@ -256,14 +323,21 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
               </div>
             </div>
             
-            <div className="prose prose-lg prose-gray max-w-none text-gray-600 leading-relaxed">
+            <div className="prose prose-lg prose-gray max-w-none text-gray-600 leading-relaxed mb-12">
               <p>
                 {project.description || "Minimalistický přístup k prostoru definuje tento projekt. Čisté linie, přirozené světlo a upřímné materiály vytvářejí atmosféru klidu a soustředění."}
               </p>
             </div>
 
+            {/* Custom Content Blocks */}
+            {project.blocks && project.blocks.length > 0 && (
+              <div className="flex flex-col gap-8 mb-16">
+                 {project.blocks.map(renderBlock)}
+              </div>
+            )}
+
             {relatedProjects.length > 0 && (
-              <div className="mt-24 border-t border-gray-100 pt-16">
+              <div className="mt-12 border-t border-gray-100 pt-16">
                 <h3 className="text-sm uppercase tracking-widest text-gray-400 mb-8">Další projekty</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {relatedProjects.map((p) => (

@@ -17,6 +17,7 @@ export interface Project {
   year?: string;
   location?: string;
   category?: string;
+  blocks?: AtelierBlock[];
 }
 
 export type AtelierBlockType = 'text' | 'image' | 'youtube' | 'video';
