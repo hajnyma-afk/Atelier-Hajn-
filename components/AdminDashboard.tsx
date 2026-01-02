@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
-import { Project, SiteContent } from '../types';
-import { Plus, Trash2, Edit2, LogOut, X, Upload, Image as ImageIcon, Crop, GripHorizontal, GripVertical, FileVideo, BarChart, Search, Tag, Video, List, Check, Youtube } from 'lucide-react';
+import { Project, SiteContent, AtelierBlock } from '../types';
+import { Plus, Trash2, Edit2, LogOut, X, Upload, Image as ImageIcon, Crop, GripHorizontal, GripVertical, FileVideo, BarChart, Search, Tag, Video, List, Check, Youtube, Link as LinkIcon, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from './Button';
 import { savePassword } from '../services/storage';
 import { ImageCropper } from './ImageCropper';
@@ -42,20 +43,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [seoForm, setSeoForm] = useState(content.seo || { title: '', keywords: '', description: '' });
   const [newKeyword, setNewKeyword] = useState('');
 
-  // -- YouTube Link State --
-  const [ytLink, setYtLink] = useState('');
-
   // -- Categories State --
   const [newCategoryName, setNewCategoryName] = useState('');
   const [renamingCategory, setRenamingCategory] = useState<string | null>(null);
   const [renamingValue, setRenamingValue] = useState('');
 
+  // -- YouTube Input --
+  const [ytLink, setYtLink] = useState('');
+
   // -- Cropper State --
   const [cropper, setCropper] = useState<{
     isOpen: boolean;
     imageSrc: string;
-    target: 'thumbnail' | 'atelier' | 'hero';
+    target: 'thumbnail' | 'hero' | 'atelier'; // 'atelier' is now specific to a block ID if needed, but we handle blocks differently now. Kept for legacy or specific crop if implemented.
     aspectRatio: number;
+    extraData?: any;
   } | null>(null);
 
   // -- Drag & Drop State (Gallery) --
@@ -130,18 +132,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
   };
 
-  // Helper to check if a source string is a video or YouTube link
+  // Helpers to detect source type
   const isVideoSource = (src: string) => src.startsWith('data:video/') || src.endsWith('.mp4') || src.endsWith('.webm');
   const isYouTubeSource = (src: string) => src.includes('youtube.com') || src.includes('youtu.be');
-  
-  const getYouTubeId = (url: string) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
-  };
 
   const getYouTubeThumbnail = (url: string) => {
-    const videoId = getYouTubeId(url);
+    let videoId = '';
+    if (url.includes('v=')) {
+      videoId = url.split('v=')[1].split('&')[0];
+    } else if (url.includes('youtu.be/')) {
+      videoId = url.split('youtu.be/')[1].split('?')[0];
+    } else if (url.includes('embed/')) {
+      videoId = url.split('embed/')[1].split('?')[0];
+    }
     return videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : null;
   };
 
@@ -350,15 +353,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleAddYouTube = () => {
-    const videoId = getYouTubeId(ytLink.trim());
-    if (!videoId) {
-      alert("Neplatný YouTube odkaz.");
-      return;
-    }
+    const trimmed = ytLink.trim();
+    if (!trimmed) return;
     if (editingProject) {
       setEditingProject({
         ...editingProject,
-        images: [...editingProject.images, ytLink.trim()]
+        images: [...editingProject.images, trimmed]
       });
       setYtLink('');
     }
@@ -404,17 +404,63 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   // -- Handlers: Content --
-  const handleAtelierImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Updated Atelier Handlers
+  const addAtelierBlock = (column: 'left' | 'right', type: 'text' | 'image' | 'youtube') => {
+    const newBlock: AtelierBlock = {
+      id: crypto.randomUUID(),
+      type,
+      content: '',
+      link: ''
+    };
+    
+    if (column === 'left') {
+      setAtelierForm(prev => ({ ...prev, leftColumn: [...prev.leftColumn, newBlock] }));
+    } else {
+      setAtelierForm(prev => ({ ...prev, rightColumn: [...prev.rightColumn, newBlock] }));
+    }
+  };
+
+  const updateAtelierBlock = (column: 'left' | 'right', id: string, field: keyof AtelierBlock, value: string) => {
+    const updater = (blocks: AtelierBlock[]) => blocks.map(b => b.id === id ? { ...b, [field]: value } : b);
+    
+    if (column === 'left') {
+      setAtelierForm(prev => ({ ...prev, leftColumn: updater(prev.leftColumn) }));
+    } else {
+      setAtelierForm(prev => ({ ...prev, rightColumn: updater(prev.rightColumn) }));
+    }
+  };
+
+  const removeAtelierBlock = (column: 'left' | 'right', id: string) => {
+    const filter = (blocks: AtelierBlock[]) => blocks.filter(b => b.id !== id);
+    if (column === 'left') {
+      setAtelierForm(prev => ({ ...prev, leftColumn: filter(prev.leftColumn) }));
+    } else {
+      setAtelierForm(prev => ({ ...prev, rightColumn: filter(prev.rightColumn) }));
+    }
+  };
+
+  const moveAtelierBlock = (column: 'left' | 'right', index: number, direction: 'up' | 'down') => {
+    const list = column === 'left' ? [...atelierForm.leftColumn] : [...atelierForm.rightColumn];
+    if (direction === 'up' && index > 0) {
+      [list[index], list[index - 1]] = [list[index - 1], list[index]];
+    } else if (direction === 'down' && index < list.length - 1) {
+      [list[index], list[index + 1]] = [list[index + 1], list[index]];
+    }
+    
+    if (column === 'left') {
+      setAtelierForm(prev => ({ ...prev, leftColumn: list }));
+    } else {
+      setAtelierForm(prev => ({ ...prev, rightColumn: list }));
+    }
+  };
+
+  const handleAtelierBlockImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, column: 'left' | 'right', id: string) => {
     if (e.target.files && e.target.files[0]) {
       try {
-        const webpData = await processImage(e.target.files[0]);
-        setCropper({
-          isOpen: true,
-          imageSrc: webpData,
-          target: 'atelier',
-          aspectRatio: 3 / 4 // 3:4 Portrait
-        });
-         e.target.value = '';
+        // No forced crop or aspect ratio, just optimization
+        const webpData = await processImage(e.target.files[0], 'original'); 
+        updateAtelierBlock(column, id, 'content', webpData);
+        e.target.value = '';
       } catch (error) {
         alert("Chyba při nahrávání obrázku.");
       }
@@ -497,8 +543,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     if (cropper.target === 'thumbnail' && editingProject) {
       setEditingProject({ ...editingProject, thumbnail: croppedBase64 });
-    } else if (cropper.target === 'atelier') {
-      setAtelierForm({ ...atelierForm, image: croppedBase64 });
     } else if (cropper.target === 'hero') {
       setHeroForm({ ...heroForm, image: croppedBase64 });
     }
@@ -564,6 +608,118 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Common input styles for light grey background
   const inputBaseStyle = "w-full bg-gray-50 border-b border-gray-300 px-3 py-2 focus:border-black focus:bg-white focus:outline-none transition-all";
+
+  // Render Logic Helper for Atelier Columns
+  const renderAtelierColumnEditor = (columnName: string, column: 'left' | 'right', blocks: AtelierBlock[]) => (
+    <div className="flex-1 min-w-[300px] flex flex-col gap-4">
+      <div className="flex justify-between items-center border-b border-gray-200 pb-2">
+        <h3 className="font-medium uppercase tracking-widest text-sm">{columnName}</h3>
+      </div>
+      
+      <div className="space-y-4">
+        {blocks.map((block, index) => (
+          <div key={block.id} className="bg-gray-50 p-4 rounded border border-gray-200 relative group">
+            {/* Type Badge */}
+            <div className="absolute top-2 right-2 flex gap-1">
+              <button onClick={() => moveAtelierBlock(column, index, 'up')} disabled={index === 0} className="p-1 text-gray-400 hover:text-black disabled:opacity-30">
+                <ArrowUp size={14} />
+              </button>
+              <button onClick={() => moveAtelierBlock(column, index, 'down')} disabled={index === blocks.length - 1} className="p-1 text-gray-400 hover:text-black disabled:opacity-30">
+                <ArrowDown size={14} />
+              </button>
+              <button onClick={() => removeAtelierBlock(column, block.id)} className="p-1 text-gray-400 hover:text-red-500 ml-2">
+                <Trash2 size={14} />
+              </button>
+            </div>
+
+            <div className="mb-2 text-xs uppercase text-gray-400 font-bold flex items-center gap-2">
+              {block.type === 'text' && <List size={12} />}
+              {block.type === 'image' && <ImageIcon size={12} />}
+              {block.type === 'youtube' && <Youtube size={12} />}
+              
+              {block.type === 'text' && 'Textový blok'}
+              {block.type === 'image' && 'Obrázek'}
+              {block.type === 'youtube' && 'YouTube Video'}
+            </div>
+
+            {block.type === 'text' && (
+              <textarea 
+                rows={4}
+                className={`${inputBaseStyle} resize-none mb-2 text-sm`}
+                value={block.content}
+                onChange={(e) => updateAtelierBlock(column, block.id, 'content', e.target.value)}
+                placeholder="Obsah textu..."
+              />
+            )}
+            
+            {block.type === 'image' && (
+              <div className="mb-2">
+                 <div className="relative w-full aspect-video bg-gray-200 flex items-center justify-center overflow-hidden rounded border border-gray-300">
+                    {block.content ? (
+                      <img src={block.content} alt="" className="w-full h-full object-contain" />
+                    ) : (
+                      <span className="text-xs text-gray-400">Žádný obrázek</span>
+                    )}
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      onChange={(e) => handleAtelierBlockImageUpload(e, column, block.id)}
+                    />
+                 </div>
+                 <p className="text-[10px] text-gray-400 mt-1">Klikněte pro nahrání/změnu. Původní poměr stran bude zachován.</p>
+              </div>
+            )}
+
+            {block.type === 'youtube' && (
+              <div className="mb-2">
+                 <input 
+                  type="text"
+                  className={`${inputBaseStyle} mb-2 text-sm`}
+                  value={block.content}
+                  onChange={(e) => updateAtelierBlock(column, block.id, 'content', e.target.value)}
+                  placeholder="Vložte odkaz na YouTube..."
+                 />
+                 <p className="text-[10px] text-gray-400 mt-1">Podporované formáty: youtu.be, youtube.com/watch</p>
+              </div>
+            )}
+
+            {/* Link Input for non-youtube types */}
+            {block.type !== 'youtube' && (
+              <div className="flex items-center gap-2 mt-2">
+                <LinkIcon size={12} className="text-gray-400" />
+                <input 
+                  type="text"
+                  className="bg-transparent text-xs border-b border-gray-300 w-full focus:outline-none py-1"
+                  placeholder="Volitelný odkaz (https://...)"
+                  value={block.link || ''}
+                  onChange={(e) => updateAtelierBlock(column, block.id, 'link', e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+        ))}
+
+        {blocks.length === 0 && (
+          <div className="text-center py-8 text-gray-400 text-xs italic border border-dashed border-gray-300 rounded">
+            Sloupec je prázdný
+          </div>
+        )}
+      </div>
+
+      <div className="flex gap-2 mt-2">
+        <Button variant="secondary" onClick={() => addAtelierBlock(column, 'text')} className="flex-1 text-xs">
+          + Text
+        </Button>
+        <Button variant="secondary" onClick={() => addAtelierBlock(column, 'image')} className="flex-1 text-xs">
+          + Obrázek
+        </Button>
+        <Button variant="secondary" onClick={() => addAtelierBlock(column, 'youtube')} className="flex-1 text-xs">
+          + YouTube
+        </Button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -978,13 +1134,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
 
                       {/* Gallery Upload & Reorder */}
-                      <div className="space-y-2">
-                        <div className="flex flex-col gap-3 mb-2">
+                      <div className="space-y-4">
+                        <div className="flex flex-col gap-4 mb-2">
                           <div className="flex justify-between items-center">
                             <label className="text-xs uppercase tracking-widest text-gray-500">Galerie médií</label>
                             <div className="flex gap-4">
                               <label className="cursor-pointer text-xs uppercase tracking-widest text-blue-600 hover:text-black transition-colors flex items-center gap-1">
-                                <ImageIcon size={12} /> Přidat fotky
+                                <ImageIcon size={12} /> Fotky
                                 <input 
                                   type="file" 
                                   multiple 
@@ -994,7 +1150,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 />
                               </label>
                               <label className="cursor-pointer text-xs uppercase tracking-widest text-teal-600 hover:text-black transition-colors flex items-center gap-1">
-                                <Video size={12} /> Přidat video
+                                <Video size={12} /> Video
                                 <input 
                                   type="file" 
                                   multiple 
@@ -1005,19 +1161,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               </label>
                             </div>
                           </div>
-                          
-                          {/* YouTube Input */}
+
+                          {/* YouTube Input Area */}
                           <div className="flex gap-2">
-                             <input 
-                               type="text" 
-                               className={`${inputBaseStyle} flex-1 text-xs`} 
-                               placeholder="Vložit YouTube odkaz..."
-                               value={ytLink}
-                               onChange={(e) => setYtLink(e.target.value)}
-                             />
-                             <Button type="button" onClick={handleAddYouTube} variant="secondary" className="px-3">
-                               <Plus size={14} />
-                             </Button>
+                            <div className="relative flex-1">
+                               <div className="absolute left-3 top-1/2 -translate-y-1/2 text-red-600">
+                                 <Youtube size={14} />
+                               </div>
+                               <input 
+                                 type="text" 
+                                 placeholder="Vložit YouTube odkaz..."
+                                 className={`${inputBaseStyle} pl-9 text-xs`}
+                                 value={ytLink}
+                                 onChange={(e) => setYtLink(e.target.value)}
+                                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddYouTube())}
+                               />
+                            </div>
+                            <Button type="button" variant="secondary" onClick={handleAddYouTube} className="whitespace-nowrap h-full">
+                              Přidat YT
+                            </Button>
                           </div>
                         </div>
                         
@@ -1039,13 +1201,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 {isYT ? (
                                   <div className="w-full h-full bg-black relative">
                                     {ytThumb ? (
-                                      <img src={ytThumb} className="w-full h-full object-cover opacity-70" alt="YT" />
+                                      <img src={ytThumb} className="w-full h-full object-cover opacity-60" alt="YT" />
                                     ) : (
                                       <div className="w-full h-full flex items-center justify-center">
-                                         <Youtube size={24} className="text-white opacity-40" />
+                                        <Youtube size={24} className="text-white opacity-40" />
                                       </div>
                                     )}
-                                    <div className="absolute top-1 left-1 bg-red-600 text-white p-1 rounded shadow-sm">
+                                    <div className="absolute top-1 left-1 bg-red-600 text-white p-1 rounded shadow">
                                       <Youtube size={12} />
                                     </div>
                                   </div>
@@ -1076,7 +1238,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           })}
                           {editingProject.images.length === 0 && (
                             <div className="col-span-3 py-8 text-center text-gray-400 text-sm italic bg-gray-50 rounded border border-dashed border-gray-200">
-                              Žádné položky v galerii. Přidejte fotky nebo videa.
+                              Žádné položky v galerii. Přidejte fotky, videa nebo YouTube odkazy.
                             </div>
                           )}
                         </div>
@@ -1191,73 +1353,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* --- ATELIER TAB --- */}
         {activeTab === 'atelier' && (
            <div className="bg-white p-8 rounded shadow-sm border border-gray-200">
-             <h2 className="text-xl mb-8">Editace: Atelier</h2>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-               <div className="space-y-8">
-                  <div className="space-y-1">
-                     <label className="text-xs uppercase tracking-widest text-gray-500">Nadpis</label>
-                     <input 
-                       className={inputBaseStyle} 
-                       value={atelierForm.title} 
-                       onChange={e => setAtelierForm({...atelierForm, title: e.target.value})} 
-                     />
-                  </div>
-                   <div className="space-y-1">
-                     <label className="text-xs uppercase tracking-widest text-gray-500">Úvodní text</label>
-                     <textarea 
-                       rows={6}
-                       className={`${inputBaseStyle} resize-none`} 
-                       value={atelierForm.intro} 
-                       onChange={e => setAtelierForm({...atelierForm, intro: e.target.value})} 
-                     />
-                  </div>
-                  <div className="space-y-1">
-                     <label className="text-xs uppercase tracking-widest text-gray-500">Filosofie</label>
-                     <input 
-                       className={inputBaseStyle} 
-                       value={atelierForm.philosophy} 
-                       onChange={e => setAtelierForm({...atelierForm, philosophy: e.target.value})} 
-                     />
-                  </div>
-                   <div className="space-y-1">
-                     <label className="text-xs uppercase tracking-widest text-gray-500">Služby (oddělené čárkou)</label>
-                     <input 
-                       className={inputBaseStyle} 
-                       value={atelierForm.services.join(', ')} 
-                       onChange={e => setAtelierForm({...atelierForm, services: e.target.value.split(',').map(s => s.trim())})} 
-                     />
-                  </div>
-               </div>
-               
-               <div className="space-y-4">
-                  <label className="text-xs uppercase tracking-widest text-gray-500">Hlavní obrázek</label>
-                   {/* 3:4 Aspect Ratio Preview for Atelier */}
-                   <div className="relative group w-full max-sm mx-auto aspect-[3/4] bg-gray-50 border-2 border-dashed border-gray-300 rounded flex flex-col items-center justify-center cursor-pointer hover:border-black hover:bg-gray-100 transition-colors overflow-hidden">
-                      <input 
-                        type="file" 
-                        accept="image/*"
-                        onChange={handleAtelierImageUpload}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                      />
-                      {atelierForm.image ? (
-                        <img src={atelierForm.image} alt="Atelier" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="text-center p-4 text-gray-400">
-                          <Upload size={24} className="mx-auto mb-2" />
-                          <span className="text-xs">Nahrát obrázek (3:4)</span>
-                        </div>
-                      )}
-                       {atelierForm.image && (
-                         <div className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                           <span className="text-xs uppercase tracking-widest">Upravit pozici</span>
-                         </div>
-                       )}
-                   </div>
-               </div>
+             <div className="flex justify-between items-center mb-8">
+               <h2 className="text-xl">Editace: Atelier (Dvousloupcové rozvržení)</h2>
+               <Button onClick={handleSaveContent}>Uložit změny</Button>
              </div>
-              <div className="mt-8">
-                <Button onClick={handleSaveContent}>Uložit změny</Button>
-              </div>
+             
+             <div className="mb-8 max-w-lg">
+                <div className="space-y-1">
+                   <label className="text-xs uppercase tracking-widest text-gray-500">Hlavní nadpis stránky</label>
+                   <input 
+                     className={inputBaseStyle} 
+                     value={atelierForm.title} 
+                     onChange={e => setAtelierForm({...atelierForm, title: e.target.value})} 
+                   />
+                </div>
+             </div>
+
+             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
+               {renderAtelierColumnEditor('Levý sloupec', 'left', atelierForm.leftColumn)}
+               {renderAtelierColumnEditor('Pravý sloupec', 'right', atelierForm.rightColumn)}
+             </div>
+
+             <div className="mt-12 pt-8 border-t border-gray-100 flex justify-center">
+                <Button onClick={handleSaveContent} className="px-12 py-3">Uložit kompletní obsah</Button>
+             </div>
            </div>
         )}
 
