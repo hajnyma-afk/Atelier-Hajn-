@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Project, SiteContent, AtelierBlock } from '../types';
+import { Project, SiteContent, AtelierBlock, AtelierBlockType } from '../types';
 import { Plus, Trash2, Edit2, LogOut, X, Upload, Image as ImageIcon, Crop, GripHorizontal, GripVertical, FileVideo, BarChart, Search, Tag, Video, List, Check, Youtube, Link as LinkIcon, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from './Button';
 import { savePassword, uploadFile, uploadMultipleFiles, deleteProject, saveContent } from '../services/storage';
@@ -54,7 +54,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [cropper, setCropper] = useState<{
     isOpen: boolean;
     imageSrc: string;
-    target: 'thumbnail' | 'hero' | 'atelier'; // 'atelier' is now specific to a block ID if needed, but we handle blocks differently now. Kept for legacy or specific crop if implemented.
+    target: 'thumbnail' | 'hero' | 'atelier';
     aspectRatio: number;
     extraData?: any;
   } | null>(null);
@@ -198,8 +198,72 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       description: '',
       thumbnail: '',
       category: categoriesList[0] || '',
-      images: []
+      images: [],
+      blocks: []
     });
+  };
+
+  // -- Handlers: Project Blocks --
+  const addProjectBlock = (type: AtelierBlockType) => {
+    if (!editingProject) return;
+    const newBlock: AtelierBlock = {
+      id: crypto.randomUUID(),
+      type,
+      content: '',
+      link: ''
+    };
+    // Add to end
+    setEditingProject({
+      ...editingProject,
+      blocks: [...(editingProject.blocks || []), newBlock]
+    });
+  };
+
+  const updateProjectBlock = (id: string, field: keyof AtelierBlock, value: string) => {
+    if (!editingProject) return;
+    const updatedBlocks = (editingProject.blocks || []).map(b => b.id === id ? { ...b, [field]: value } : b);
+    setEditingProject({ ...editingProject, blocks: updatedBlocks });
+  };
+
+  const removeProjectBlock = (id: string) => {
+    if (!editingProject) return;
+    const updatedBlocks = (editingProject.blocks || []).filter(b => b.id !== id);
+    setEditingProject({ ...editingProject, blocks: updatedBlocks });
+  };
+
+  const moveProjectBlock = (index: number, direction: 'up' | 'down') => {
+    if (!editingProject || !editingProject.blocks) return;
+    const list = [...editingProject.blocks];
+    if (direction === 'up' && index > 0) {
+      [list[index], list[index - 1]] = [list[index - 1], list[index]];
+    } else if (direction === 'down' && index < list.length - 1) {
+      [list[index], list[index + 1]] = [list[index + 1], list[index]];
+    }
+    setEditingProject({ ...editingProject, blocks: list });
+  };
+
+  const handleProjectBlockImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, id: string) => {
+    if (e.target.files && e.target.files[0] && editingProject) {
+      try {
+        const imageUrl = await processAndUploadImage(e.target.files[0], 'original');
+        updateProjectBlock(id, 'content', imageUrl);
+        e.target.value = '';
+      } catch (error) {
+        alert("Chyba při nahrávání obrázku.");
+      }
+    }
+  };
+
+  const handleProjectBlockVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>, id: string) => {
+    if (e.target.files && e.target.files[0] && editingProject) {
+      try {
+        const videoData = await processAndUploadVideo(e.target.files[0]);
+        updateProjectBlock(id, 'content', videoData);
+        e.target.value = '';
+      } catch (error) {
+        alert(typeof error === 'string' ? error : "Chyba při nahrávání videa.");
+      }
+    }
   };
 
   // -- Handlers: Categories --
@@ -431,9 +495,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     };
 
     if (column === 'left') {
-      setAtelierForm(prev => ({ ...prev, leftColumn: [...prev.leftColumn, newBlock] }));
+      setAtelierForm(prev => ({ ...prev, leftColumn: [newBlock, ...prev.leftColumn] }));
     } else {
-      setAtelierForm(prev => ({ ...prev, rightColumn: [...prev.rightColumn, newBlock] }));
+      setAtelierForm(prev => ({ ...prev, rightColumn: [newBlock, ...prev.rightColumn] }));
     }
   };
 
@@ -773,7 +837,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             )}
 
-            {/* Link Input for non-youtube/video types (optional, but requested by user flow for atelier, keeping it for video too if they want to link the whole block) */}
             {block.type !== 'youtube' && (
               <div className="flex items-center gap-2 mt-2">
                 <LinkIcon size={12} className="text-gray-400" />
@@ -1125,7 +1188,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </button>
                 </div>
 
-                <form onSubmit={handleSaveProject} className="space-y-8">
+                <form onSubmit={handleSaveProject} className="space-y-12">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* Left Column: Text Data */}
                     <div className="space-y-6">
@@ -1338,6 +1401,137 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
 
+                  {/* Project Blocks Section */}
+                  <div className="space-y-6 pt-8 border-t border-gray-100">
+                    <h3 className="font-medium text-lg mb-4">Obsahové bloky projektu</h3>
+                    <div className="bg-gray-50 p-6 rounded border border-gray-200">
+                       <div className="space-y-4 mb-6">
+                        {(editingProject.blocks || []).map((block, index) => (
+                          <div key={block.id} className="bg-white p-4 rounded border border-gray-200 relative group">
+                            {/* Type Badge */}
+                            <div className="absolute top-2 right-2 flex gap-1 z-10">
+                              <button type="button" onClick={() => moveProjectBlock(index, 'up')} disabled={index === 0} className="p-1 text-gray-400 hover:text-black disabled:opacity-30">
+                                <ArrowUp size={14} />
+                              </button>
+                              <button type="button" onClick={() => moveProjectBlock(index, 'down')} disabled={index === (editingProject.blocks?.length || 0) - 1} className="p-1 text-gray-400 hover:text-black disabled:opacity-30">
+                                <ArrowDown size={14} />
+                              </button>
+                              <button type="button" onClick={() => removeProjectBlock(block.id)} className="p-1 text-gray-400 hover:text-red-500 ml-2">
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+
+                            <div className="mb-2 text-xs uppercase text-gray-400 font-bold flex items-center gap-2">
+                              {block.type === 'text' && <List size={12} />}
+                              {block.type === 'image' && <ImageIcon size={12} />}
+                              {block.type === 'youtube' && <Youtube size={12} />}
+                              {block.type === 'video' && <FileVideo size={12} />}
+
+                              {block.type === 'text' && 'Textový blok'}
+                              {block.type === 'image' && 'Obrázek'}
+                              {block.type === 'youtube' && 'YouTube Video'}
+                              {block.type === 'video' && 'Vlastní Video'}
+                            </div>
+
+                            {block.type === 'text' && (
+                              <textarea
+                                rows={4}
+                                className={`${inputBaseStyle} resize-none mb-2 text-sm`}
+                                value={block.content}
+                                onChange={(e) => updateProjectBlock(block.id, 'content', e.target.value)}
+                                placeholder="Obsah textu..."
+                              />
+                            )}
+
+                            {block.type === 'image' && (
+                              <div className="mb-2">
+                                <div className="relative w-full aspect-video bg-gray-100 flex items-center justify-center overflow-hidden rounded border border-gray-200">
+                                    {block.content ? (
+                                      <img src={block.content} alt="" className="w-full h-full object-contain" />
+                                    ) : (
+                                      <span className="text-xs text-gray-400">Žádný obrázek</span>
+                                    )}
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      className="absolute inset-0 opacity-0 cursor-pointer"
+                                      onChange={(e) => handleProjectBlockImageUpload(e, block.id)}
+                                    />
+                                </div>
+                              </div>
+                            )}
+
+                            {block.type === 'video' && (
+                              <div className="mb-2">
+                                <div className="relative w-full aspect-video bg-gray-100 flex items-center justify-center overflow-hidden rounded border border-gray-200">
+                                    {block.content ? (
+                                      <video src={block.content} className="w-full h-full object-cover" muted loop autoPlay playsInline />
+                                    ) : (
+                                      <div className="text-center p-2">
+                                         <FileVideo size={24} className="mx-auto text-gray-400 mb-1" />
+                                         <span className="text-xs text-gray-400">Nahrát video</span>
+                                      </div>
+                                    )}
+                                    <input
+                                      type="file"
+                                      accept="video/mp4,video/webm"
+                                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                      onChange={(e) => handleProjectBlockVideoUpload(e, block.id)}
+                                    />
+                                </div>
+                              </div>
+                            )}
+
+                            {block.type === 'youtube' && (
+                              <div className="mb-2">
+                                <input
+                                  type="text"
+                                  className={`${inputBaseStyle} mb-2 text-sm`}
+                                  value={block.content}
+                                  onChange={(e) => updateProjectBlock(block.id, 'content', e.target.value)}
+                                  placeholder="Vložte odkaz na YouTube..."
+                                />
+                              </div>
+                            )}
+
+                            {block.type !== 'youtube' && (
+                               <div className="flex items-center gap-2 mt-2">
+                                 <LinkIcon size={12} className="text-gray-400" />
+                                 <input
+                                   type="text"
+                                   className="bg-transparent text-xs border-b border-gray-300 w-full focus:outline-none py-1"
+                                   placeholder="Volitelný odkaz (https://...)"
+                                   value={block.link || ''}
+                                   onChange={(e) => updateProjectBlock(block.id, 'link', e.target.value)}
+                                 />
+                               </div>
+                             )}
+                          </div>
+                        ))}
+                        {(!editingProject.blocks || editingProject.blocks.length === 0) && (
+                           <div className="text-center py-6 text-gray-400 text-xs italic border border-dashed border-gray-300 rounded">
+                             Zatím žádné obsahové bloky. Přidejte text, obrázky nebo video pod hlavní popis.
+                           </div>
+                        )}
+                       </div>
+
+                       <div className="flex gap-2 flex-wrap">
+                          <Button type="button" variant="secondary" onClick={() => addProjectBlock('text')} className="flex-1 text-xs min-w-[70px]">
+                            + Text
+                          </Button>
+                          <Button type="button" variant="secondary" onClick={() => addProjectBlock('image')} className="flex-1 text-xs min-w-[70px]">
+                            + Obrázek
+                          </Button>
+                          <Button type="button" variant="secondary" onClick={() => addProjectBlock('youtube')} className="flex-1 text-xs min-w-[70px]">
+                            + YouTube
+                          </Button>
+                          <Button type="button" variant="secondary" onClick={() => addProjectBlock('video')} className="flex-1 text-xs min-w-[70px]">
+                            + Video
+                          </Button>
+                       </div>
+                    </div>
+                  </div>
+
                   <div className="pt-4 flex gap-4 border-t border-gray-100">
                     <Button type="submit">Uložit projekt</Button>
                     <Button type="button" variant="secondary" onClick={() => setEditingProject(null)}>Zrušit</Button>
@@ -1351,11 +1545,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* --- CATEGORIES TAB --- */}
         {activeTab === 'categories' && (
           <div className="bg-white p-8 rounded shadow-sm border border-gray-200 space-y-8 animate-in fade-in duration-300">
+            {/* ... existing categories content ... */}
             <div className="flex items-center gap-3 mb-4">
                 <List size={24} className="text-beige-600" />
                 <h2 className="text-xl">Správa kategorií projektů</h2>
              </div>
-
+             {/* ... (rest of categories tab content is identical, just truncated here to save space in this response since I am providing the FULL file content) ... */}
              <div className="max-w-2xl space-y-6">
                 <p className="text-sm text-gray-500">Tyto kategorie se zobrazují v navigační liště projektů. Přetažením můžete měnit jejich pořadí.</p>
 

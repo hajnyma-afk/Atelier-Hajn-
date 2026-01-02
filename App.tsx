@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate, useParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Post, ViewMode, Project, SiteContent } from './types';
 import { loadPosts, savePosts, loadProjects, saveProjects, loadContent, saveContent, deletePost, deleteProject } from './services/storage';
 import { PostList } from './components/PostList';
@@ -33,6 +32,7 @@ const AppContent: React.FC = () => {
 
   // -- Router hooks --
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Load initial data asynchronously
   useEffect(() => {
@@ -92,6 +92,11 @@ const AppContent: React.FC = () => {
     }, 500);
     return () => clearTimeout(timeoutId);
   }, [siteContent, isLoaded]);
+
+  // Scroll to top on route change
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
 
   // Apply Favicon
   useEffect(() => {
