@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Post, ViewMode, Project, SiteContent } from './types';
 import { loadPosts, savePosts, loadProjects, saveProjects, loadContent, saveContent } from './services/storage';
@@ -67,6 +66,11 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isLoaded && siteContent) saveContent(siteContent);
   }, [siteContent, isLoaded]);
+
+  // Scroll to top on view change
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [view]);
 
   // Apply Favicon
   useEffect(() => {

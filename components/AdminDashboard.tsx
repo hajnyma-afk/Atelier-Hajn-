@@ -413,9 +413,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     };
     
     if (column === 'left') {
-      setAtelierForm(prev => ({ ...prev, leftColumn: [...prev.leftColumn, newBlock] }));
+      setAtelierForm(prev => ({ ...prev, leftColumn: [newBlock, ...prev.leftColumn] }));
     } else {
-      setAtelierForm(prev => ({ ...prev, rightColumn: [...prev.rightColumn, newBlock] }));
+      setAtelierForm(prev => ({ ...prev, rightColumn: [newBlock, ...prev.rightColumn] }));
     }
   };
 
