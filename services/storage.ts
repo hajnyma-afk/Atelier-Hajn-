@@ -1,4 +1,5 @@
-import { Post, Project, SiteContent } from '../types';
+
+import { Post, Project, SiteContent, AtelierBlock } from '../types';
 
 // In production (served from same domain), use relative URLs
 // In development, use VITE_API_URL or default to localhost
@@ -19,8 +20,8 @@ const getApiBaseUrl = () => {
 
 const STORAGE_KEYS = {
   POSTS: 'zencms_posts',
-  PROJECTS: 'zencms_projects_v5', // Updated key to force refresh with thumbnails
-  CONTENT: 'zencms_content_v2', // Updated key for categories
+  PROJECTS: 'zencms_projects_v5', 
+  CONTENT: 'zencms_content_v3', // Updated key for new atelier structure
   PASSWORD: 'zencms_password'
 };
 
@@ -53,15 +54,30 @@ const DEFAULT_CONTENT: SiteContent = {
   },
   atelier: {
     title: "Atelier",
-    intro: "ATELIER HAJNÝ se zaměřuje na architekturu ticha a prostoru. Věříme, že prázdnota není absencí, ale příležitostí. Naše projekty hledají rovnováhu mezi funkčností a estetikou minimalismu. Pracujeme s přirozeným světlem, surovými materiály a kontextem krajiny. Každá čára má svůj význam, každý detail svůj důvod.",
-    philosophy: "Méně, ale lépe. Odstranění nepodstatného, aby vyniklo to důležité.",
-    services: [
-      "Architektonické studie",
-      "Interiérový design",
-      "Urbanismus",
-      "Konzultace"
+    leftColumn: [
+      {
+        id: '1',
+        type: 'image',
+        content: 'https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2940&auto=format&fit=crop'
+      },
+      {
+        id: '2',
+        type: 'text',
+        content: "ATELIER HAJNÝ se zaměřuje na architekturu ticha a prostoru. Věříme, že prázdnota není absencí, ale příležitostí. Naše projekty hledají rovnováhu mezi funkčností a estetikou minimalismu."
+      }
     ],
-    image: ""
+    rightColumn: [
+      {
+        id: '3',
+        type: 'text',
+        content: "Filosofie\n\nMéně, ale lépe. Odstranění nepodstatného, aby vyniklo to důležité. Pracujeme s přirozeným světlem, surovými materiály a kontextem krajiny. Každá čára má svůj význam, každý detail svůj důvod."
+      },
+      {
+        id: '4',
+        type: 'text',
+        content: "Služby\n\n• Architektonické studie\n• Interiérový design\n• Urbanismus\n• Konzultace"
+      }
+    ]
   },
   contact: {
     address: "Nitranská 19, 130 00 Praha 3, Česká Republika",
@@ -187,6 +203,24 @@ export const loadContent = async (): Promise<SiteContent> => {
       return DEFAULT_CONTENT;
     }
 
+    // Migration Logic for Atelier structure (legacy check)
+    let atelier = content.atelier || DEFAULT_CONTENT.atelier;
+    if (!atelier.leftColumn && !atelier.rightColumn) {
+       // Migrate old format to new format
+       const oldAtelier = atelier as any;
+       atelier = {
+         title: oldAtelier.title || "Atelier",
+         leftColumn: oldAtelier.image ? [
+           { id: 'mig-1', type: 'image', content: oldAtelier.image }
+         ] : [],
+         rightColumn: [
+           { id: 'mig-2', type: 'text', content: oldAtelier.intro || '' },
+           { id: 'mig-3', type: 'text', content: `Filosofie\n${oldAtelier.philosophy || ''}` },
+           { id: 'mig-4', type: 'text', content: `Služby\n${(oldAtelier.services || []).join('\n')}` }
+         ]
+       };
+    }
+
     // Reconstruct the SiteContent structure
     return {
       ...DEFAULT_CONTENT,
@@ -209,7 +243,7 @@ export const loadContent = async (): Promise<SiteContent> => {
         ...content.hero,
         textColor: content.hero?.textColor || DEFAULT_CONTENT.hero.textColor
       },
-      atelier: content.atelier || DEFAULT_CONTENT.atelier,
+      atelier: atelier,
       contact: content.contact || DEFAULT_CONTENT.contact,
     };
   } catch (e) {

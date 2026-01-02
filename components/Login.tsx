@@ -57,6 +57,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onCancel }) => {
               placeholder="Zadejte heslo"
               className="w-full bg-transparent border-b border-gray-300 py-3 text-center focus:border-black focus:outline-none transition-colors"
               autoFocus
+              disabled={isLoading}
             />
             {error && (
               <p className="text-xs text-red-500 text-center tracking-widest uppercase">Nesprávné heslo</p>
@@ -71,6 +72,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onCancel }) => {
               type="button"
               onClick={onCancel}
               className="text-xs text-gray-400 hover:text-black uppercase tracking-widest transition-colors py-2"
+              disabled={isLoading}
             >
               Zpět na web
             </button>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useParams } from 'react-router-dom';
 import { Post, ViewMode, Project, SiteContent } from './types';
@@ -22,6 +23,7 @@ const AppContent: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [siteContent, setSiteContent] = useState<SiteContent | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   // -- Auth State --
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -32,9 +34,9 @@ const AppContent: React.FC = () => {
   // -- Router hooks --
   const navigate = useNavigate();
 
-  // Load initial data
+  // Load initial data asynchronously
   useEffect(() => {
-    const loadData = async () => {
+    const initData = async () => {
       try {
         const [loadedPosts, loadedProjects, loadedContent] = await Promise.all([
           loadPosts(),
@@ -44,16 +46,19 @@ const AppContent: React.FC = () => {
         setPosts(loadedPosts);
         setProjects(loadedProjects);
         setSiteContent(loadedContent);
+        setIsLoaded(true);
       } catch (error) {
-        console.error('Failed to load initial data:', error);
+        console.error("Failed to load data", error);
+        // Handle error or set default states if critical
+        setIsLoaded(true); 
       }
     };
-    loadData();
+    initData();
   }, []);
 
-  // Persist data when changed (debounced)
+  // Persist data when changed, but ONLY after initial load is complete
   useEffect(() => {
-    if (posts.length === 0) return;
+    if (!isLoaded) return;
     const timeoutId = setTimeout(async () => {
       try {
         await savePosts(posts);
@@ -62,10 +67,10 @@ const AppContent: React.FC = () => {
       }
     }, 500);
     return () => clearTimeout(timeoutId);
-  }, [posts]);
+  }, [posts, isLoaded]);
 
   useEffect(() => {
-    if (projects.length === 0) return;
+    if (!isLoaded) return;
     const timeoutId = setTimeout(async () => {
       try {
         await saveProjects(projects);
@@ -74,10 +79,10 @@ const AppContent: React.FC = () => {
       }
     }, 500);
     return () => clearTimeout(timeoutId);
-  }, [projects]);
-
+  }, [projects, isLoaded]);
+  
   useEffect(() => {
-    if (!siteContent) return;
+    if (!isLoaded || !siteContent) return;
     const timeoutId = setTimeout(async () => {
       try {
         await saveContent(siteContent);
@@ -86,7 +91,7 @@ const AppContent: React.FC = () => {
       }
     }, 500);
     return () => clearTimeout(timeoutId);
-  }, [siteContent]);
+  }, [siteContent, isLoaded]);
 
   // Apply Favicon
   useEffect(() => {
@@ -239,8 +244,17 @@ const AppContent: React.FC = () => {
     projectsGridRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Ensure content is loaded before rendering
-  if (!siteContent) return null;
+  // Render loading state or content
+  if (!isLoaded || !siteContent) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="animate-pulse flex flex-col items-center gap-4">
+          <div className="h-8 w-8 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-xs uppercase tracking-widest text-gray-400">Načítání ateliéru...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white text-gray-900 selection:bg-beige-600 selection:text-white flex flex-col">

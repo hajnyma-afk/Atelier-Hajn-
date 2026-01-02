@@ -19,6 +19,15 @@ export interface Project {
   category?: string;
 }
 
+export type AtelierBlockType = 'text' | 'image' | 'youtube' | 'video';
+
+export interface AtelierBlock {
+  id: string;
+  type: AtelierBlockType;
+  content: string; // Text content or Image Base64/URL
+  link?: string;
+}
+
 export interface SiteContent {
   branding: {
     logo: string;
@@ -48,10 +57,8 @@ export interface SiteContent {
   };
   atelier: {
     title: string;
-    intro: string;
-    philosophy: string;
-    services: string[];
-    image: string;
+    leftColumn: AtelierBlock[];
+    rightColumn: AtelierBlock[];
   };
   contact: {
     address: string;

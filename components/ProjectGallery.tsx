@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Project } from '../types';
@@ -25,8 +24,21 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
   const touchStart = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Helper to check if a source string is a video
+  // Helper to check if a source string is a video or youtube link
   const isVideoSource = (src: string) => src.startsWith('data:video/') || src.endsWith('.mp4') || src.endsWith('.webm');
+  const isYouTubeSource = (src: string) => src.includes('youtube.com') || src.includes('youtu.be');
+
+  const getYouTubeEmbedUrl = (url: string) => {
+    let videoId = '';
+    if (url.includes('v=')) {
+      videoId = url.split('v=')[1].split('&')[0];
+    } else if (url.includes('youtu.be/')) {
+      videoId = url.split('youtu.be/')[1].split('?')[0];
+    } else if (url.includes('embed/')) {
+      videoId = url.split('embed/')[1].split('?')[0];
+    }
+    return videoId ? `https://www.youtube.com/embed/${videoId}?rel=0&showinfo=0&autoplay=0` : url;
+  };
 
   // Scroll to top when project changes
   useEffect(() => {
@@ -170,7 +182,7 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
           {project.images.length > 1 && (
             <button
               onClick={onDesktopPrev}
-              className="absolute left-4 top-1/2 -translate-y-1/2 p-3 hover:bg-white/90 rounded-full transition-colors z-20 hidden md:block opacity-0 group-hover:opacity-100 duration-300"
+              className="absolute left-4 top-1/2 -translate-y-1/2 p-3 hover:bg-white/90 rounded-full transition-colors z-[70] hidden md:block opacity-0 group-hover:opacity-100 duration-300"
             >
               <ChevronLeft size={32} strokeWidth={1} />
             </button>
@@ -187,15 +199,26 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
                  const src = project.images[imgIndex];
                  if (!src) return null;
                  const isVid = isVideoSource(src);
+                 const isYT = isYouTubeSource(src);
 
                  return (
                     <div key={`${imgIndex}-${windowPos}`} className="w-full h-full flex-shrink-0 relative">
-                       {isVid ? (
-                         <video
-                           src={src}
-                           autoPlay
-                           loop
-                           muted
+                       {isYT ? (
+                         <div className="w-full h-full p-4 md:p-12">
+                            <iframe 
+                              src={getYouTubeEmbedUrl(src)}
+                              className="w-full h-full border-0 rounded shadow-lg"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                              title="YouTube video player"
+                            />
+                         </div>
+                       ) : isVid ? (
+                         <video 
+                           src={src} 
+                           autoPlay 
+                           loop 
+                           muted 
                            playsInline
                            className="w-full h-full object-contain select-none bg-white"
                          />
@@ -215,7 +238,7 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
           {project.images.length > 1 && (
             <button
               onClick={onDesktopNext}
-              className="absolute right-4 top-1/2 -translate-y-1/2 p-3 hover:bg-white/90 rounded-full transition-colors z-20 hidden md:block opacity-0 group-hover:opacity-100 duration-300"
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-3 hover:bg-white/90 rounded-full transition-colors z-[70] hidden md:block opacity-0 group-hover:opacity-100 duration-300"
             >
               <ChevronRight size={32} strokeWidth={1} />
             </button>
