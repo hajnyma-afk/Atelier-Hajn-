@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Project, SiteContent, AtelierBlock } from '../types';
 import { Plus, Trash2, Edit2, LogOut, X, Upload, Image as ImageIcon, Crop, GripHorizontal, GripVertical, FileVideo, BarChart, Search, Tag, Video, List, Check, Youtube, Link as LinkIcon, ArrowUp, ArrowDown } from 'lucide-react';
@@ -81,7 +80,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
    * 1. Resizes image if it exceeds targetMaxWidth (to save localStorage space)
    * 2. Automatically converts to .webp format for better compression
    */
-  const processImage = (file: File, targetMaxWidth: number | 'original' = 1920): Promise<string> => {
+  const processImage = (file: File, targetMaxWidth: number | 'original' = 1920, quality: number = 0.8): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       
@@ -110,7 +109,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           ctx.drawImage(img, 0, 0, width, height);
           
           // Convert to WebP format automatically
-          resolve(canvas.toDataURL('image/webp', 0.8));
+          resolve(canvas.toDataURL('image/webp', quality));
         };
         img.onerror = () => reject('Image load failed');
         img.src = e.target?.result as string;
@@ -291,8 +290,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       try {
-        // Thumbnail will be downsized to 500 pixels on horizontal side when uploaded
-        const webpData = await processImage(e.target.files[0], 500);
+        // Thumbnail will keep original resolution (optimized to WebP)
+        const webpData = await processImage(e.target.files[0], 'original', 0.95);
         setCropper({
           isOpen: true,
           imageSrc: webpData,
