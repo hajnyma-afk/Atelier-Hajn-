@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Project, AtelierBlock } from '../types';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -331,7 +332,7 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
 
             {/* Custom Content Blocks */}
             {project.blocks && project.blocks.length > 0 && (
-              <div className="flex flex-col gap-8 mb-16">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16 items-start">
                  {project.blocks.map(renderBlock)}
               </div>
             )}
