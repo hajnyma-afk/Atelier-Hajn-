@@ -50,7 +50,7 @@ const AppContent: React.FC = () => {
       } catch (error) {
         console.error("Failed to load data", error);
         // Handle error or set default states if critical
-        setIsLoaded(true); 
+        setIsLoaded(true);
       }
     };
     initData();
@@ -80,7 +80,7 @@ const AppContent: React.FC = () => {
     }, 500);
     return () => clearTimeout(timeoutId);
   }, [projects, isLoaded]);
-  
+
   useEffect(() => {
     if (!isLoaded || !siteContent) return;
     const timeoutId = setTimeout(async () => {

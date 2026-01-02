@@ -33,3 +33,6 @@ server/uploads/*
 *.njsproj
 *.sln
 *.sw?
+
+# Dev custom
+work/

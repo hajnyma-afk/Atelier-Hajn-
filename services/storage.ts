@@ -20,7 +20,7 @@ const getApiBaseUrl = () => {
 
 const STORAGE_KEYS = {
   POSTS: 'zencms_posts',
-  PROJECTS: 'zencms_projects_v5', 
+  PROJECTS: 'zencms_projects_v5',
   CONTENT: 'zencms_content_v3', // Updated key for new atelier structure
   PASSWORD: 'zencms_password'
 };

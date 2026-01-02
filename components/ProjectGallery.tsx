@@ -205,7 +205,7 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
                     <div key={`${imgIndex}-${windowPos}`} className="w-full h-full flex-shrink-0 relative">
                        {isYT ? (
                          <div className="w-full h-full p-4 md:p-12">
-                            <iframe 
+                            <iframe
                               src={getYouTubeEmbedUrl(src)}
                               className="w-full h-full border-0 rounded shadow-lg"
                               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -214,11 +214,11 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
                             />
                          </div>
                        ) : isVid ? (
-                         <video 
-                           src={src} 
-                           autoPlay 
-                           loop 
-                           muted 
+                         <video
+                           src={src}
+                           autoPlay
+                           loop
+                           muted
                            playsInline
                            className="w-full h-full object-contain select-none bg-white"
                          />

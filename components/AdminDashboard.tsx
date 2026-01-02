@@ -430,7 +430,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       content: '',
       link: ''
     };
-    
+
     if (column === 'left') {
       setAtelierForm(prev => ({ ...prev, leftColumn: [...prev.leftColumn, newBlock] }));
     } else {
@@ -440,7 +440,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const updateAtelierBlock = (column: 'left' | 'right', id: string, field: keyof AtelierBlock, value: string) => {
     const updater = (blocks: AtelierBlock[]) => blocks.map(b => b.id === id ? { ...b, [field]: value } : b);
-    
+
     if (column === 'left') {
       setAtelierForm(prev => ({ ...prev, leftColumn: updater(prev.leftColumn) }));
     } else {
@@ -464,7 +464,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     } else if (direction === 'down' && index < list.length - 1) {
       [list[index], list[index + 1]] = [list[index + 1], list[index]];
     }
-    
+
     if (column === 'left') {
       setAtelierForm(prev => ({ ...prev, leftColumn: list }));
     } else {
@@ -476,7 +476,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (e.target.files && e.target.files[0]) {
       try {
         // No forced crop or aspect ratio, just optimization
-        const imageUrl = await processAndUploadImage(e.target.files[0], 'original'); 
+        const imageUrl = await processAndUploadImage(e.target.files[0], 'original');
         updateAtelierBlock(column, id, 'content', imageUrl);
         e.target.value = '';
       } catch (error) {
@@ -668,7 +668,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       <div className="flex justify-between items-center border-b border-gray-200 pb-2">
         <h3 className="font-medium uppercase tracking-widest text-sm">{columnName}</h3>
       </div>
-      
+
       <div className="space-y-4">
         {blocks.map((block, index) => (
           <div key={block.id} className="bg-gray-50 p-4 rounded border border-gray-200 relative group">
@@ -690,7 +690,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               {block.type === 'image' && <ImageIcon size={12} />}
               {block.type === 'youtube' && <Youtube size={12} />}
               {block.type === 'video' && <FileVideo size={12} />}
-              
+
               {block.type === 'text' && 'Textový blok'}
               {block.type === 'image' && 'Obrázek'}
               {block.type === 'youtube' && 'YouTube Video'}
@@ -698,7 +698,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             {block.type === 'text' && (
-              <textarea 
+              <textarea
                 rows={4}
                 className={`${inputBaseStyle} resize-none mb-2 text-sm`}
                 value={block.content}
@@ -706,7 +706,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 placeholder="Obsah textu..."
               />
             )}
-            
+
             {block.type === 'image' && (
               <div className="mb-2">
                  <div className="relative w-full aspect-video bg-gray-200 flex items-center justify-center overflow-hidden rounded border border-gray-300">
@@ -715,8 +715,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     ) : (
                       <span className="text-xs text-gray-400">Žádný obrázek</span>
                     )}
-                    <input 
-                      type="file" 
+                    <input
+                      type="file"
                       accept="image/*"
                       className="absolute inset-0 opacity-0 cursor-pointer"
                       onChange={(e) => handleAtelierBlockImageUpload(e, column, block.id)}
@@ -735,8 +735,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                             <span className="text-white text-xs uppercase tracking-widest">Změnit video</span>
                          </div>
-                         <input 
-                           type="file" 
+                         <input
+                           type="file"
                            accept="video/mp4,video/webm"
                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                            onChange={(e) => handleAtelierBlockVideoUpload(e, column, block.id)}
@@ -748,8 +748,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                            <FileVideo size={24} className="mx-auto text-gray-400 mb-1" />
                            <span className="text-xs text-gray-400">Nahrát video</span>
                         </div>
-                        <input 
-                          type="file" 
+                        <input
+                          type="file"
                           accept="video/mp4,video/webm"
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                           onChange={(e) => handleAtelierBlockVideoUpload(e, column, block.id)}
@@ -763,7 +763,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {block.type === 'youtube' && (
               <div className="mb-2">
-                 <input 
+                 <input
                   type="text"
                   className={`${inputBaseStyle} mb-2 text-sm`}
                   value={block.content}
@@ -778,7 +778,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {block.type !== 'youtube' && (
               <div className="flex items-center gap-2 mt-2">
                 <LinkIcon size={12} className="text-gray-400" />
-                <input 
+                <input
                   type="text"
                   className="bg-transparent text-xs border-b border-gray-300 w-full focus:outline-none py-1"
                   placeholder="Volitelný odkaz (https://...)"
@@ -1234,9 +1234,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <div className="flex gap-4">
                               <label className="cursor-pointer text-xs uppercase tracking-widest text-blue-600 hover:text-black transition-colors flex items-center gap-1">
                                 <ImageIcon size={12} /> Fotky
-                                <input 
-                                  type="file" 
-                                  multiple 
+                                <input
+                                  type="file"
+                                  multiple
                                   accept="image/*"
                                   onChange={handleGalleryUpload}
                                   className="hidden"
@@ -1244,9 +1244,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               </label>
                               <label className="cursor-pointer text-xs uppercase tracking-widest text-teal-600 hover:text-black transition-colors flex items-center gap-1">
                                 <Video size={12} /> Video
-                                <input 
-                                  type="file" 
-                                  multiple 
+                                <input
+                                  type="file"
+                                  multiple
                                   accept="video/mp4,video/webm"
                                   onChange={handleGalleryVideoUpload}
                                   className="hidden"
@@ -1261,8 +1261,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-red-600">
                                  <Youtube size={14} />
                                </div>
-                               <input 
-                                 type="text" 
+                               <input
+                                 type="text"
                                  placeholder="Vložit YouTube odkaz..."
                                  className={`${inputBaseStyle} pl-9 text-xs`}
                                  value={ytLink}
@@ -1450,14 +1450,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                <h2 className="text-xl">Editace: Atelier (Dvousloupcové rozvržení)</h2>
                <Button onClick={handleSaveContent}>Uložit změny</Button>
              </div>
-             
+
              <div className="mb-8 max-w-lg">
                 <div className="space-y-1">
                    <label className="text-xs uppercase tracking-widest text-gray-500">Hlavní nadpis stránky</label>
-                   <input 
-                     className={inputBaseStyle} 
-                     value={atelierForm.title} 
-                     onChange={e => setAtelierForm({...atelierForm, title: e.target.value})} 
+                   <input
+                     className={inputBaseStyle}
+                     value={atelierForm.title}
+                     onChange={e => setAtelierForm({...atelierForm, title: e.target.value})}
                    />
                 </div>
              </div>
