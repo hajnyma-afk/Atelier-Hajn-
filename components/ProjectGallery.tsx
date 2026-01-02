@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Project, AtelierBlock } from '../types';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ProjectGalleryProps {
   project: Project;
@@ -225,7 +225,7 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
 
   return (
     <div className="w-full bg-white animate-in fade-in duration-300 pb-12">
-      <div className="max-w-[95%] md:max-w-[75%] mx-auto px-6 py-6 block">
+      <div className="max-w-[95%] md:max-w-[75%] mx-auto px-6 py-6 landscape:hidden lg:landscape:block">
         <button 
           onClick={onClose}
           className="group flex items-center gap-2 text-sm uppercase tracking-widest text-gray-500 hover:text-black transition-colors"
@@ -235,19 +235,10 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
         </button>
       </div>
 
-      {/* Floating Close Button for Mobile Landscape */}
-      <button 
-        onClick={onClose}
-        className="fixed top-4 right-4 z-[80] p-3 bg-white/90 backdrop-blur-sm rounded-full shadow-lg text-gray-900 landscape:block hidden lg:landscape:hidden hover:bg-gray-100 transition-colors"
-        aria-label="Zavřít galerii"
-      >
-        <X size={20} strokeWidth={1.5} />
-      </button>
-
       <div className="flex flex-col">
         {/* Gallery Carousel */}
         <div 
-          className="relative w-full h-[65vh] landscape:h-[85vh] lg:h-[calc(100vh-180px)] lg:landscape:h-[calc(100vh-180px)] bg-white group touch-pan-y overflow-hidden"
+          className="relative w-full h-[65vh] landscape:fixed landscape:inset-0 landscape:h-full landscape:z-[60] lg:h-[calc(100vh-180px)] lg:landscape:h-[calc(100vh-180px)] lg:landscape:relative lg:landscape:z-auto lg:landscape:inset-auto bg-white group touch-pan-y landscape:touch-none lg:landscape:touch-pan-y overflow-hidden"
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
@@ -322,7 +313,7 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
           </div>
         </div>
 
-        <div className="w-full bg-white py-16 px-6 block">
+        <div className="w-full bg-white py-16 px-6 landscape:hidden lg:landscape:block">
           <div className="max-w-[95%] md:max-w-[75%] mx-auto">
             <div className="flex flex-col md:flex-row md:justify-between md:items-baseline mb-8 pb-8 border-b border-gray-100">
               <h1 className="text-3xl md:text-4xl text-gray-900 mb-2">{project.title}</h1>
@@ -340,7 +331,7 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
 
             {/* Custom Content Blocks */}
             {project.blocks && project.blocks.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16 items-start">
+              <div className="flex flex-col gap-8 mb-16">
                  {project.blocks.map(renderBlock)}
               </div>
             )}
