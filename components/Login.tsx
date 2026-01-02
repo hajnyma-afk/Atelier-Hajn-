@@ -11,16 +11,24 @@ interface LoginProps {
 export const Login: React.FC<LoginProps> = ({ onLogin, onCancel }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const storedPassword = loadPassword();
+    setIsLoading(true);
     
-    if (password === storedPassword) {
-      onLogin();
-    } else {
+    try {
+      const storedPassword = await loadPassword();
+      if (password === storedPassword) {
+        onLogin();
+      } else {
+        setError(true);
+        setPassword('');
+      }
+    } catch (e) {
       setError(true);
-      setPassword('');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -38,6 +46,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onCancel }) => {
               placeholder="Heslo (zkuste: admin123)"
               className="w-full bg-transparent border-b border-gray-300 py-3 text-center focus:border-black focus:outline-none transition-colors"
               autoFocus
+              disabled={isLoading}
             />
             {error && (
               <p className="text-xs text-red-500 text-center tracking-widest uppercase">Nesprávné heslo</p>
@@ -45,13 +54,14 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onCancel }) => {
           </div>
 
           <div className="flex flex-col gap-3">
-            <Button type="submit" className="w-full py-4">
+            <Button type="submit" className="w-full py-4" isLoading={isLoading}>
               Vstoupit
             </Button>
             <button 
               type="button" 
               onClick={onCancel}
               className="text-xs text-gray-400 hover:text-black uppercase tracking-widest transition-colors py-2"
+              disabled={isLoading}
             >
               Zpět na web
             </button>

@@ -19,7 +19,7 @@ export interface Project {
   category?: string;
 }
 
-export type AtelierBlockType = 'text' | 'image' | 'youtube';
+export type AtelierBlockType = 'text' | 'image' | 'youtube' | 'video';
 
 export interface AtelierBlock {
   id: string;

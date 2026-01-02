@@ -405,7 +405,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // -- Handlers: Content --
   // Updated Atelier Handlers
-  const addAtelierBlock = (column: 'left' | 'right', type: 'text' | 'image' | 'youtube') => {
+  const addAtelierBlock = (column: 'left' | 'right', type: 'text' | 'image' | 'youtube' | 'video') => {
     const newBlock: AtelierBlock = {
       id: crypto.randomUUID(),
       type,
@@ -463,6 +463,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         e.target.value = '';
       } catch (error) {
         alert("Chyba při nahrávání obrázku.");
+      }
+    }
+  };
+
+  const handleAtelierBlockVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>, column: 'left' | 'right', id: string) => {
+    if (e.target.files && e.target.files[0]) {
+      try {
+        const videoData = await processVideo(e.target.files[0]);
+        updateAtelierBlock(column, id, 'content', videoData);
+        e.target.value = '';
+      } catch (error) {
+        alert(typeof error === 'string' ? error : "Chyba při nahrávání videa.");
       }
     }
   };
@@ -589,13 +601,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   // -- Handlers: Settings --
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword.trim().length < 4) {
       alert("Heslo musí mít alespoň 4 znaky.");
       return;
     }
-    savePassword(newPassword);
+    await savePassword(newPassword);
     alert("Heslo bylo úspěšně změněno.");
     setNewPassword('');
   };
@@ -636,10 +648,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               {block.type === 'text' && <List size={12} />}
               {block.type === 'image' && <ImageIcon size={12} />}
               {block.type === 'youtube' && <Youtube size={12} />}
+              {block.type === 'video' && <FileVideo size={12} />}
               
               {block.type === 'text' && 'Textový blok'}
               {block.type === 'image' && 'Obrázek'}
               {block.type === 'youtube' && 'YouTube Video'}
+              {block.type === 'video' && 'Vlastní Video'}
             </div>
 
             {block.type === 'text' && (
@@ -671,6 +685,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             )}
 
+            {block.type === 'video' && (
+              <div className="mb-2">
+                 <div className="relative w-full aspect-video bg-gray-200 flex items-center justify-center overflow-hidden rounded border border-gray-300">
+                    {block.content ? (
+                      <div className="relative w-full h-full group">
+                         <video src={block.content} className="w-full h-full object-cover" muted loop autoPlay playsInline />
+                         <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                            <span className="text-white text-xs uppercase tracking-widest">Změnit video</span>
+                         </div>
+                         <input 
+                           type="file" 
+                           accept="video/mp4,video/webm"
+                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                           onChange={(e) => handleAtelierBlockVideoUpload(e, column, block.id)}
+                         />
+                      </div>
+                    ) : (
+                      <>
+                        <div className="text-center p-2">
+                           <FileVideo size={24} className="mx-auto text-gray-400 mb-1" />
+                           <span className="text-xs text-gray-400">Nahrát video</span>
+                        </div>
+                        <input 
+                          type="file" 
+                          accept="video/mp4,video/webm"
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          onChange={(e) => handleAtelierBlockVideoUpload(e, column, block.id)}
+                        />
+                      </>
+                    )}
+                 </div>
+                 <p className="text-[10px] text-gray-400 mt-1">Max 20MB. MP4/WebM.</p>
+              </div>
+            )}
+
             {block.type === 'youtube' && (
               <div className="mb-2">
                  <input 
@@ -684,7 +733,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             )}
 
-            {/* Link Input for non-youtube types */}
+            {/* Link Input for non-youtube/video types (optional, but requested by user flow for atelier, keeping it for video too if they want to link the whole block) */}
             {block.type !== 'youtube' && (
               <div className="flex items-center gap-2 mt-2">
                 <LinkIcon size={12} className="text-gray-400" />
@@ -707,15 +756,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
       </div>
 
-      <div className="flex gap-2 mt-2">
-        <Button variant="secondary" onClick={() => addAtelierBlock(column, 'text')} className="flex-1 text-xs">
+      <div className="flex gap-2 mt-2 flex-wrap">
+        <Button variant="secondary" onClick={() => addAtelierBlock(column, 'text')} className="flex-1 text-xs min-w-[70px]">
           + Text
         </Button>
-        <Button variant="secondary" onClick={() => addAtelierBlock(column, 'image')} className="flex-1 text-xs">
+        <Button variant="secondary" onClick={() => addAtelierBlock(column, 'image')} className="flex-1 text-xs min-w-[70px]">
           + Obrázek
         </Button>
-        <Button variant="secondary" onClick={() => addAtelierBlock(column, 'youtube')} className="flex-1 text-xs">
+        <Button variant="secondary" onClick={() => addAtelierBlock(column, 'youtube')} className="flex-1 text-xs min-w-[70px]">
           + YouTube
+        </Button>
+        <Button variant="secondary" onClick={() => addAtelierBlock(column, 'video')} className="flex-1 text-xs min-w-[70px]">
+          + Video
         </Button>
       </div>
     </div>
@@ -1486,6 +1538,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                    <p className="text-[10px] text-gray-400 mt-1 uppercase">Ideální rozsah: 150-160 znaků.</p>
                 </div>
 
+                {/* Meta Description */}
                 <div className="pt-6">
                    <Button onClick={handleSaveContent} className="px-12">Uložit SEO nastavení</Button>
                 </div>

@@ -155,84 +155,154 @@ const DEFAULT_CONTENT: SiteContent = {
   }
 };
 
-// -- Projects --
-export const saveProjects = (projects: Project[]): void => {
+// --- IndexedDB Helper ---
+const DB_NAME = 'AtelierHajnyDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'keyval';
+
+let dbInstance: IDBDatabase | null = null;
+
+const getDB = async (): Promise<IDBDatabase> => {
+  if (dbInstance) return dbInstance;
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME);
+      }
+    };
+    request.onsuccess = (event) => {
+      dbInstance = (event.target as IDBOpenDBRequest).result;
+      resolve(dbInstance);
+    };
+    request.onerror = (event) => reject((event.target as IDBOpenDBRequest).error);
+  });
+};
+
+const dbGet = async <T>(key: string): Promise<T | undefined> => {
   try {
-    localStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(projects));
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.get(key);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (e) {
+    console.error('DB Get Error', e);
+    return undefined;
+  }
+};
+
+const dbSet = async (key: string, value: any): Promise<void> => {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.put(value, key);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+};
+
+// -- Projects --
+export const saveProjects = async (projects: Project[]): Promise<void> => {
+  try {
+    await dbSet(STORAGE_KEYS.PROJECTS, projects);
   } catch (e) {
     console.error('Failed to save projects', e);
   }
 };
 
-export const loadProjects = (): Project[] => {
+export const loadProjects = async (): Promise<Project[]> => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEYS.PROJECTS);
-    return stored ? JSON.parse(stored) : DEFAULT_PROJECTS;
+    // 1. Try IndexedDB
+    const stored = await dbGet<Project[]>(STORAGE_KEYS.PROJECTS);
+    if (stored) return stored;
+
+    // 2. Migration from localStorage
+    const local = localStorage.getItem(STORAGE_KEYS.PROJECTS);
+    if (local) {
+      try {
+        const parsed = JSON.parse(local);
+        await dbSet(STORAGE_KEYS.PROJECTS, parsed);
+        // We can optionally clear localStorage here to free up space
+        // localStorage.removeItem(STORAGE_KEYS.PROJECTS); 
+        return parsed;
+      } catch (err) {
+        console.warn('Failed to parse local projects', err);
+      }
+    }
+    
+    // 3. Default
+    return DEFAULT_PROJECTS;
   } catch (e) {
     return DEFAULT_PROJECTS;
   }
 };
 
 // -- Site Content --
-export const saveContent = (content: SiteContent): void => {
+export const saveContent = async (content: SiteContent): Promise<void> => {
   try {
-    localStorage.setItem(STORAGE_KEYS.CONTENT, JSON.stringify(content));
+    await dbSet(STORAGE_KEYS.CONTENT, content);
   } catch (e) {
     console.error('Failed to save content', e);
   }
 };
 
-export const loadContent = (): SiteContent => {
+export const loadContent = async (): Promise<SiteContent> => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEYS.CONTENT);
-    if (!stored) return DEFAULT_CONTENT;
+    let content: SiteContent | null | undefined = await dbGet<SiteContent>(STORAGE_KEYS.CONTENT);
+
+    if (!content) {
+      const local = localStorage.getItem(STORAGE_KEYS.CONTENT);
+      if (local) {
+        try {
+          content = JSON.parse(local);
+          if (content) await dbSet(STORAGE_KEYS.CONTENT, content);
+        } catch (err) {
+          console.warn('Failed to parse local content', err);
+        }
+      }
+    }
+
+    // Default if still null
+    if (!content) content = DEFAULT_CONTENT;
     
-    const parsed = JSON.parse(stored);
-    
-    // Migration Logic for Atelier: if leftColumn/rightColumn missing, use old fields
-    let atelier = parsed.atelier || DEFAULT_CONTENT.atelier;
-    
+    // Migration Logic for Atelier structure (legacy check)
+    let atelier = content.atelier || DEFAULT_CONTENT.atelier;
     if (!atelier.leftColumn && !atelier.rightColumn) {
        // Migrate old format to new format
+       const oldAtelier = atelier as any;
        atelier = {
-         title: atelier.title || "Atelier",
-         leftColumn: atelier.image ? [
-           { id: 'mig-1', type: 'image', content: atelier.image }
+         title: oldAtelier.title || "Atelier",
+         leftColumn: oldAtelier.image ? [
+           { id: 'mig-1', type: 'image', content: oldAtelier.image }
          ] : [],
          rightColumn: [
-           { id: 'mig-2', type: 'text', content: atelier.intro || '' },
-           { id: 'mig-3', type: 'text', content: `Filosofie\n${atelier.philosophy || ''}` },
-           { id: 'mig-4', type: 'text', content: `Služby\n${(atelier.services || []).join('\n')}` }
+           { id: 'mig-2', type: 'text', content: oldAtelier.intro || '' },
+           { id: 'mig-3', type: 'text', content: `Filosofie\n${oldAtelier.philosophy || ''}` },
+           { id: 'mig-4', type: 'text', content: `Služby\n${(oldAtelier.services || []).join('\n')}` }
          ]
        };
     }
 
     return {
       ...DEFAULT_CONTENT,
-      ...parsed,
-      branding: {
-        ...DEFAULT_CONTENT.branding,
-        ...(parsed.branding || {})
-      },
-      analytics: {
-        ...DEFAULT_CONTENT.analytics,
-        ...(parsed.analytics || {})
-      },
-      seo: {
-        ...DEFAULT_CONTENT.seo,
-        ...(parsed.seo || {})
-      },
-      categories: parsed.categories || DEFAULT_CONTENT.categories,
+      ...content,
+      branding: { ...DEFAULT_CONTENT.branding, ...(content.branding || {}) },
+      analytics: { ...DEFAULT_CONTENT.analytics, ...(content.analytics || {}) },
+      seo: { ...DEFAULT_CONTENT.seo, ...(content.seo || {}) },
+      categories: content.categories || DEFAULT_CONTENT.categories,
       hero: {
         ...DEFAULT_CONTENT.hero,
-        ...(parsed.hero || {}),
-        textColor: parsed.hero?.textColor || DEFAULT_CONTENT.hero.textColor
+        ...(content.hero || {}),
+        textColor: content.hero?.textColor || DEFAULT_CONTENT.hero.textColor
       },
       atelier: atelier,
-      contact: {
-        ...DEFAULT_CONTENT.contact,
-        ...(parsed.contact || {})
-      }
+      contact: { ...DEFAULT_CONTENT.contact, ...(content.contact || {}) }
     };
   } catch (e) {
     return DEFAULT_CONTENT;
@@ -240,36 +310,53 @@ export const loadContent = (): SiteContent => {
 };
 
 // -- Posts --
-export const savePosts = (posts: Post[]): void => {
+export const savePosts = async (posts: Post[]): Promise<void> => {
   try {
-    localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(posts));
+    await dbSet(STORAGE_KEYS.POSTS, posts);
   } catch (e) {
     console.error('Failed to save posts', e);
   }
 };
 
-export const loadPosts = (): Post[] => {
+export const loadPosts = async (): Promise<Post[]> => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEYS.POSTS);
-    return stored ? JSON.parse(stored) : [];
+    const stored = await dbGet<Post[]>(STORAGE_KEYS.POSTS);
+    if (stored) return stored;
+
+    const local = localStorage.getItem(STORAGE_KEYS.POSTS);
+    if (local) {
+      const parsed = JSON.parse(local);
+      await dbSet(STORAGE_KEYS.POSTS, parsed);
+      return parsed;
+    }
+
+    return [];
   } catch (e) {
     return [];
   }
 };
 
 // -- Auth --
-export const savePassword = (password: string): void => {
+export const savePassword = async (password: string): Promise<void> => {
   try {
-    localStorage.setItem(STORAGE_KEYS.PASSWORD, password);
+    await dbSet(STORAGE_KEYS.PASSWORD, password);
   } catch (e) {
     console.error('Failed to save password', e);
   }
 };
 
-export const loadPassword = (): string => {
+export const loadPassword = async (): Promise<string> => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEYS.PASSWORD);
-    return stored || 'admin123';
+    const stored = await dbGet<string>(STORAGE_KEYS.PASSWORD);
+    if (stored) return stored;
+
+    const local = localStorage.getItem(STORAGE_KEYS.PASSWORD);
+    if (local) {
+      await dbSet(STORAGE_KEYS.PASSWORD, local);
+      return local;
+    }
+    
+    return 'admin123';
   } catch (e) {
     return 'admin123';
   }

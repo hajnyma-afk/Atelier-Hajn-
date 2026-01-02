@@ -40,6 +40,23 @@ export const Atelier: React.FC<AtelierProps> = ({ content }) => {
       );
     }
 
+    if (block.type === 'video') {
+      return (
+        <Wrapper key={block.id} {...wrapperProps}>
+          <div className="w-full mb-8">
+            <video 
+              src={block.content} 
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="w-full h-auto" 
+            />
+          </div>
+        </Wrapper>
+      );
+    }
+
     if (block.type === 'youtube') {
       return (
         <Wrapper key={block.id} {...wrapperProps}>
