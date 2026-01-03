@@ -71,7 +71,7 @@ export function setupRoutes(app, db) {
   // Create or update project
   app.post('/api/projects', async (req, res) => {
     try {
-      const { id, title, thumbnail, description, year, location, category, images, display_order } = req.body;
+      const { id, title, thumbnail, description, year, location, category, images, display_order, blocks } = req.body;
       const projectId = id || uuidv4();
       const now = Date.now();
 
@@ -101,6 +101,7 @@ export function setupRoutes(app, db) {
         location: location || null,
         category: category || null,
         images: processedImages,
+        blocks: blocks || [],
         display_order: display_order || 0,
         updated_at: now
       };
