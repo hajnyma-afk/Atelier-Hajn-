@@ -58,6 +58,47 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
     return ((idx % len) + len) % len;
   };
 
+  // Preload adjacent images for smoother navigation
+  useEffect(() => {
+    if (!project.images || project.images.length === 0) return;
+
+    const len = project.images.length;
+    const wrapIdx = (idx: number) => {
+      if (len === 0) return 0;
+      return ((idx % len) + len) % len;
+    };
+
+    const preloadImages = (indices: number[]) => {
+      indices.forEach((idx) => {
+        const wrappedIdx = wrapIdx(idx);
+        const src = project.images[wrappedIdx];
+        if (!src || isYouTubeSource(src)) return; // Skip YouTube URLs
+
+        if (isVideoSource(src)) {
+          // Preload videos
+          const video = document.createElement('video');
+          video.src = src;
+          video.preload = 'auto';
+          video.load();
+        } else {
+          // Preload images
+          const img = new Image();
+          img.src = src;
+        }
+      });
+    };
+
+    // Preload next 2 and previous 2 images for smooth navigation
+    const preloadIndices = [
+      currentIndex - 2,
+      currentIndex - 1,
+      currentIndex + 1,
+      currentIndex + 2,
+    ];
+
+    preloadImages(preloadIndices);
+  }, [currentIndex, project.images]);
+
   const activeSlideIndices = [
     getWrappedIndex(currentIndex - 1),
     currentIndex,
@@ -295,6 +336,8 @@ export const ProjectGallery: React.FC<ProjectGalleryProps> = ({ project, allProj
                           alt={`${project.title} view`}
                           className="w-full h-full object-contain select-none"
                           draggable={false}
+                          loading="lazy"
+                          decoding="async"
                          />
                        )}
                     </div>

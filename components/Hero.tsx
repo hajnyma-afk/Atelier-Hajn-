@@ -14,12 +14,12 @@ export const Hero: React.FC<HeroProps> = ({ onScrollDown, onContact, content }) 
     'top-left': 'justify-start items-start text-left',
     'top-center': 'justify-start items-center text-center',
     'top-right': 'justify-start items-end text-right',
-    
+
     // Middle
     'middle-left': 'justify-center items-start text-left',
     'center': 'justify-center items-center text-center',
     'middle-right': 'justify-center items-end text-right',
-    
+
     // Bottom
     'bottom-left': 'justify-end items-start text-left',
     'bottom-center': 'justify-end items-center text-center',
@@ -47,22 +47,24 @@ export const Hero: React.FC<HeroProps> = ({ onScrollDown, onContact, content }) 
       <div className="absolute inset-0 bg-gray-50">
         {/* Placeholder/Static Image - Always rendered if exists */}
         {content.image && (
-          <img 
-            src={content.image} 
-            alt="Hero Background" 
+          <img
+            src={content.image}
+            alt="Hero Background"
             className="absolute inset-0 w-full h-full object-cover z-0"
+            fetchPriority="high"
+            loading="eager"
           />
         )}
-        
+
         {/* Hero Video - Fades in over the image once loaded */}
         {content.video && (
-          <video 
-            src={content.video} 
+          <video
+            src={content.video}
             poster={content.image} // Browser native placeholder
-            autoPlay 
-            loop 
-            muted 
-            playsInline 
+            autoPlay
+            loop
+            muted
+            playsInline
             className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 z-10"
             onLoadedData={(e) => (e.currentTarget.style.opacity = '1')}
             style={{ opacity: 0 }}
@@ -73,7 +75,7 @@ export const Hero: React.FC<HeroProps> = ({ onScrollDown, onContact, content }) 
       {/* Content Container - Aligned with Grid */}
       <div className="absolute inset-0 pointer-events-none z-20">
         <div className={`w-full h-full max-w-[95%] md:max-w-[75%] mx-auto px-6 pt-32 pb-24 flex flex-col ${positionClasses[pos] || positionClasses['center']}`}>
-          <div 
+          <div
             className={`max-w-3xl flex flex-col space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-1000 pointer-events-auto ${isCentered ? 'items-center' : isRight ? 'items-end' : 'items-start'}`}
             style={{ color: textColor }}
           >
@@ -83,7 +85,7 @@ export const Hero: React.FC<HeroProps> = ({ onScrollDown, onContact, content }) 
               </h1>
             )}
             {content.subtitle && (
-              <button 
+              <button
                 onClick={onContact}
                 className={`${sizeClasses[size].subtitle} ${subtitleAlign} font-light tracking-wide max-w-xl leading-relaxed hover:opacity-100 hover:!text-beige-600 transition-all duration-300 cursor-pointer block outline-none border-none bg-transparent p-0`}
                 style={{ opacity: 0.8, color: textColor }}
@@ -96,7 +98,7 @@ export const Hero: React.FC<HeroProps> = ({ onScrollDown, onContact, content }) 
       </div>
 
       {/* Scroll Indicator */}
-      <button 
+      <button
         onClick={onScrollDown}
         className="absolute bottom-10 left-1/2 -translate-x-1/2 hover:opacity-60 transition-opacity animate-bounce hidden md:block z-30 p-2 cursor-pointer"
         aria-label="Posunout dolů"

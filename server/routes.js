@@ -1,8 +1,21 @@
 import { v4 as uuidv4 } from 'uuid';
 import multer from 'multer';
 import { uploadToFtp, deleteFromFtp, downloadFromFtp, isFtpConfigured } from './ftpService.js';
-import { generateFileName, getFileUrl } from './utils.js';
+import { uploadToGcs, deleteFromGcs, downloadFromGcs, isGcsConfigured, getGcsBucket, getGcsSignedUrl } from './gcsService.js';
+import { generateFileName, getFileUrl, extractFileName } from './utils.js';
 import { sendContactEmail, isEmailConfigured } from './emailService.js';
+
+// Helper functions to determine which storage to use
+function isStorageConfigured() {
+  return isFtpConfigured() || isGcsConfigured();
+}
+
+function getStorageType() {
+  // Prefer GCS if both are configured
+  if (isGcsConfigured()) return 'gcs';
+  if (isFtpConfigured()) return 'ftp';
+  return null;
+}
 
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
@@ -10,6 +23,125 @@ const upload = multer({
   storage,
   limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
 });
+
+/**
+ * Convert file paths to signed URLs for GCS (if configured)
+ * This allows direct access to GCS files, bypassing the proxy for much better performance
+ * Falls back to proxy URLs if signed URL generation is not possible
+ */
+async function convertToSignedUrls(filePaths) {
+  if (!isGcsConfigured() || !filePaths || filePaths.length === 0) {
+    return filePaths;
+  }
+
+  return Promise.all(
+    filePaths.map(async (filePath) => {
+      // Skip YouTube URLs and external URLs
+      if (!filePath || typeof filePath !== 'string' ||
+          filePath.includes('youtube.com') || filePath.includes('youtu.be') ||
+          (filePath.startsWith('http') && !filePath.includes('storage.googleapis.com') && !filePath.includes('/api/images/'))) {
+        return filePath;
+      }
+
+      try {
+        // Extract filename from path
+        const fileName = extractFileName(filePath);
+        // Generate signed URL valid for 24 hours
+        const signedUrl = await getGcsSignedUrl(fileName, 24 * 60);
+        // If signed URL generation returned null (missing credentials), fall back to proxy
+        return signedUrl || getFileUrl(filePath);
+      } catch (error) {
+        // Fallback to proxy URL if signed URL generation fails
+        return getFileUrl(filePath);
+      }
+    })
+  );
+}
+
+/**
+ * Convert a single file path to signed URL (if GCS)
+ * Falls back to proxy URL if signed URL generation is not possible
+ */
+async function convertToSignedUrl(filePath) {
+  if (!filePath || !isGcsConfigured()) {
+    return filePath ? getFileUrl(filePath) : null;
+  }
+
+  // Skip YouTube URLs and external URLs
+  if (typeof filePath !== 'string' ||
+      filePath.includes('youtube.com') || filePath.includes('youtu.be') ||
+      (filePath.startsWith('http') && !filePath.includes('storage.googleapis.com') && !filePath.includes('/api/images/'))) {
+    return filePath;
+  }
+
+  try {
+    const fileName = extractFileName(filePath);
+    const signedUrl = await getGcsSignedUrl(fileName, 24 * 60);
+    // If signed URL generation returned null (missing credentials), fall back to proxy
+    return signedUrl || getFileUrl(filePath);
+  } catch (error) {
+    // Fallback to proxy URL if signed URL generation fails
+    return getFileUrl(filePath);
+  }
+}
+
+/**
+ * Recursively process content object and convert file paths to signed URLs
+ */
+async function processContentForSignedUrls(content) {
+  if (!content || !isGcsConfigured()) {
+    return content;
+  }
+
+  const processed = { ...content };
+
+  // Process hero images/videos
+  if (processed.hero) {
+    if (processed.hero.image) {
+      processed.hero.image = await convertToSignedUrl(processed.hero.image);
+    }
+    if (processed.hero.video) {
+      processed.hero.video = await convertToSignedUrl(processed.hero.video);
+    }
+  }
+
+  // Process branding (logo, favicon)
+  if (processed.branding) {
+    if (processed.branding.logo) {
+      processed.branding.logo = await convertToSignedUrl(processed.branding.logo);
+    }
+    if (processed.branding.favicon) {
+      processed.branding.favicon = await convertToSignedUrl(processed.branding.favicon);
+    }
+  }
+
+  // Process atelier blocks (left and right columns)
+  if (processed.atelier) {
+    const processBlocks = async (blocks) => {
+      if (!Array.isArray(blocks)) return blocks;
+      return Promise.all(
+        blocks.map(async (block) => {
+          if (block.content && (block.type === 'image' || block.type === 'video')) {
+            return {
+              ...block,
+              content: await convertToSignedUrl(block.content)
+            };
+          }
+          return block;
+        })
+      );
+    };
+
+    if (processed.atelier.leftColumn) {
+      processed.atelier.leftColumn = await processBlocks(processed.atelier.leftColumn);
+    }
+    if (processed.atelier.rightColumn) {
+      processed.atelier.rightColumn = await processBlocks(processed.atelier.rightColumn);
+    }
+  }
+
+  return processed;
+}
 
 export function setupRoutes(app, db) {
 
@@ -29,16 +161,19 @@ export function setupRoutes(app, db) {
         return (b.created_at || 0) - (a.created_at || 0);
       });
 
-      const projectsWithImages = projects.map(project => {
-        // Images are stored as an array in the project document
-        const images = (project.images || []).map(filePath => getFileUrl(filePath));
+      // Convert file paths to signed URLs for faster loading
+      const projectsWithImages = await Promise.all(
+        projects.map(async (project) => {
+          const images = await convertToSignedUrls(project.images || []);
+          const thumbnail = await convertToSignedUrl(project.thumbnail);
 
-        return {
-          ...project,
-          thumbnail: project.thumbnail ? getFileUrl(project.thumbnail) : null,
-          images
-        };
-      });
+          return {
+            ...project,
+            thumbnail,
+            images
+          };
+        })
+      );
 
       res.json(projectsWithImages);
     } catch (error) {
@@ -55,11 +190,13 @@ export function setupRoutes(app, db) {
         return res.status(404).json({ error: 'Project not found' });
       }
 
-      const images = (project.images || []).map(filePath => getFileUrl(filePath));
+      // Convert file paths to signed URLs for faster loading
+      const images = await convertToSignedUrls(project.images || []);
+      const thumbnail = await convertToSignedUrl(project.thumbnail);
 
       res.json({
         ...project,
-        thumbnail: project.thumbnail ? getFileUrl(project.thumbnail) : null,
+        thumbnail,
         images
       });
     } catch (error) {
@@ -131,13 +268,22 @@ export function setupRoutes(app, db) {
         return res.status(404).json({ error: 'Project not found' });
       }
 
-      // Delete files from FTP
+      // Delete files from storage (FTP or GCS)
       const filesToDelete = [
         ...(project.images || []),
         ...(project.thumbnail ? [project.thumbnail] : [])
       ];
 
-      if (isFtpConfigured()) {
+      const storageType = getStorageType();
+      if (storageType === 'gcs') {
+        for (const fileName of filesToDelete) {
+          try {
+            await deleteFromGcs(fileName);
+          } catch (err) {
+            console.error(`Failed to delete file ${fileName} from GCS:`, err.message);
+          }
+        }
+      } else if (storageType === 'ftp') {
         for (const fileName of filesToDelete) {
           try {
             await deleteFromFtp(fileName);
@@ -188,12 +334,23 @@ export function setupRoutes(app, db) {
         return res.status(400).json({ error: 'No file provided' });
       }
 
-      if (!isFtpConfigured()) {
-        return res.status(500).json({ error: 'FTP not configured. Please set FTP_HOST, FTP_USER, FTP_PASSWORD, and FTP_BASE_URL environment variables.' });
+      if (!isStorageConfigured()) {
+        return res.status(500).json({ error: 'Storage not configured. Please set either GCS (GCS_BUCKET_NAME, GCS_PROJECT_ID) or FTP (FTP_HOST, FTP_USER, FTP_PASSWORD) environment variables.' });
       }
 
       const fileName = generateFileName(req.file.originalname, req.file.mimetype);
-      const fileUrl = await uploadToFtp(req.file.buffer, fileName);
+      const storageType = getStorageType();
+
+      let fileUrl;
+      if (storageType === 'gcs') {
+        await uploadToGcs(req.file.buffer, fileName);
+        // Try to generate signed URL for immediate use (valid for 24 hours)
+        // Falls back to proxy URL if signing is not possible
+        const signedUrl = await getGcsSignedUrl(fileName, 24 * 60);
+        fileUrl = signedUrl || getFileUrl(fileName);
+      } else {
+        fileUrl = await uploadToFtp(req.file.buffer, fileName);
+      }
 
       res.json({
         url: fileUrl,
@@ -212,14 +369,24 @@ export function setupRoutes(app, db) {
         return res.status(400).json({ error: 'No files provided' });
       }
 
-      if (!isFtpConfigured()) {
-        return res.status(500).json({ error: 'FTP not configured. Please set FTP_HOST, FTP_USER, FTP_PASSWORD, and FTP_BASE_URL environment variables.' });
+      if (!isStorageConfigured()) {
+        return res.status(500).json({ error: 'Storage not configured. Please set either GCS (GCS_BUCKET_NAME, GCS_PROJECT_ID) or FTP (FTP_HOST, FTP_USER, FTP_PASSWORD) environment variables.' });
       }
 
+      const storageType = getStorageType();
       const uploadedFiles = await Promise.all(
         req.files.map(async (file) => {
           const fileName = generateFileName(file.originalname, file.mimetype);
-          const fileUrl = await uploadToFtp(file.buffer, fileName);
+          let fileUrl;
+          if (storageType === 'gcs') {
+            await uploadToGcs(file.buffer, fileName);
+            // Try to generate signed URL for immediate use (valid for 24 hours)
+            // Falls back to proxy URL if signing is not possible
+            const signedUrl = await getGcsSignedUrl(fileName, 24 * 60);
+            fileUrl = signedUrl || getFileUrl(fileName);
+          } else {
+            fileUrl = await uploadToFtp(file.buffer, fileName);
+          }
           return {
             url: fileUrl,
             fileName: fileName
@@ -239,11 +406,16 @@ export function setupRoutes(app, db) {
     try {
       const fileName = req.params.fileName;
 
-      if (!isFtpConfigured()) {
-        return res.status(500).json({ error: 'FTP not configured' });
+      if (!isStorageConfigured()) {
+        return res.status(500).json({ error: 'Storage not configured' });
       }
 
-      await deleteFromFtp(fileName);
+      const storageType = getStorageType();
+      if (storageType === 'gcs') {
+        await deleteFromGcs(fileName);
+      } else {
+        await deleteFromFtp(fileName);
+      }
       res.json({ success: true });
     } catch (error) {
       console.error('Error deleting file:', error);
@@ -252,16 +424,20 @@ export function setupRoutes(app, db) {
   });
 
   // Proxy endpoint for images and videos (avoids CORS issues)
-  app.get('/api/images/:fileName', async (req, res) => {
+  app.get('/api/images/:fileName(*)', async (req, res) => {
     try {
-      // Extract filename from URL parameter (handle encoded paths)
+      // Extract filename from URL parameter (handle encoded paths and full paths)
       let fileName = decodeURIComponent(req.params.fileName);
 
       // Security: Remove any path traversal attempts
       fileName = fileName.replace(/\.\./g, '').replace(/^\//, '');
 
-      if (!isFtpConfigured()) {
-        return res.status(500).json({ error: 'FTP not configured' });
+      // Extract just the filename from paths using the shared utility function
+      // This handles cases where the database has paths like "/atelier-hajny-web-file-content/filename.webp"
+      fileName = extractFileName(fileName);
+
+      if (!isStorageConfigured()) {
+        return res.status(500).json({ error: 'Storage not configured' });
       }
 
       // Determine content type based on file extension
@@ -281,40 +457,103 @@ export function setupRoutes(app, db) {
         contentType = 'video/webm';
       }
 
-      // Download file from FTP
-      const fileBuffer = await downloadFromFtp(fileName);
-      const fileSize = fileBuffer.length;
-
       // Set CORS headers
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Range');
 
-      // Handle range requests for videos (required for video playback and seeking)
-      const range = req.headers.range;
-      if (isVideo && range) {
-        const parts = range.replace(/bytes=/, '').split('-');
-        const start = parseInt(parts[0], 10);
-        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-        const chunkSize = (end - start) + 1;
-        const chunk = fileBuffer.slice(start, end + 1);
+      // Download file from storage (FTP or GCS)
+      const storageType = getStorageType();
 
-        res.status(206); // Partial Content
-        res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
-        res.setHeader('Accept-Ranges', 'bytes');
-        res.setHeader('Content-Length', chunkSize);
-        res.setHeader('Content-Type', contentType);
-        res.setHeader('Cache-Control', 'public, max-age=31536000');
-        res.send(chunk);
-      } else {
-        // Full file response for images or non-range requests
-        res.setHeader('Content-Type', contentType);
-        res.setHeader('Content-Length', fileSize);
-        res.setHeader('Cache-Control', 'public, max-age=31536000');
-        if (isVideo) {
-          res.setHeader('Accept-Ranges', 'bytes');
+      if (storageType === 'gcs') {
+        // Stream directly from GCS for better performance (no memory buffering)
+        const bucket = getGcsBucket();
+        const file = bucket.file(fileName);
+
+        // Get file metadata for size and ETag
+        const [metadata] = await file.getMetadata();
+        const fileSize = parseInt(metadata.size, 10);
+        const etag = metadata.etag;
+
+        // Check if client has cached version (304 Not Modified)
+        const ifNoneMatch = req.headers['if-none-match'];
+        if (ifNoneMatch === etag) {
+          res.status(304).end();
+          return;
         }
-        res.send(fileBuffer);
+
+        // Set cache headers
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        res.setHeader('ETag', etag);
+        res.setHeader('Content-Type', contentType);
+
+        // Handle range requests for videos
+        const range = req.headers.range;
+        if (isVideo && range) {
+          const parts = range.replace(/bytes=/, '').split('-');
+          const start = parseInt(parts[0], 10);
+          const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+          const chunkSize = (end - start) + 1;
+
+          res.status(206); // Partial Content
+          res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
+          res.setHeader('Accept-Ranges', 'bytes');
+          res.setHeader('Content-Length', chunkSize);
+
+          // Stream partial file
+          file.createReadStream({ start, end }).pipe(res);
+        } else {
+          // Stream full file
+          res.setHeader('Content-Length', fileSize);
+          if (isVideo) {
+            res.setHeader('Accept-Ranges', 'bytes');
+          }
+          file.createReadStream().pipe(res);
+        }
+      } else {
+        // FTP - buffer required (FTP library doesn't support streaming well)
+        const fileBuffer = await downloadFromFtp(fileName);
+        const fileSize = fileBuffer.length;
+
+        // Generate ETag from file content hash
+        const crypto = await import('crypto');
+        const etag = `"${crypto.createHash('md5').update(fileBuffer).digest('hex')}"`;
+
+        // Check if client has cached version (304 Not Modified)
+        const ifNoneMatch = req.headers['if-none-match'];
+        if (ifNoneMatch === etag) {
+          res.status(304).end();
+          return;
+        }
+
+        // Handle range requests for videos
+        const range = req.headers.range;
+        if (isVideo && range) {
+          const parts = range.replace(/bytes=/, '').split('-');
+          const start = parseInt(parts[0], 10);
+          const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+          const chunkSize = (end - start) + 1;
+          const chunk = fileBuffer.slice(start, end + 1);
+
+          res.status(206); // Partial Content
+          res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
+          res.setHeader('Accept-Ranges', 'bytes');
+          res.setHeader('Content-Length', chunkSize);
+          res.setHeader('Content-Type', contentType);
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          res.setHeader('ETag', etag);
+          res.send(chunk);
+        } else {
+          // Full file response
+          res.setHeader('Content-Type', contentType);
+          res.setHeader('Content-Length', fileSize);
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          res.setHeader('ETag', etag);
+          if (isVideo) {
+            res.setHeader('Accept-Ranges', 'bytes');
+          }
+          res.send(fileBuffer);
+        }
       }
     } catch (error) {
       console.error('Error proxying file:', error);
@@ -398,7 +637,11 @@ export function setupRoutes(app, db) {
           content[row.key] = row.value;
         }
       });
-      res.json(content);
+
+      // Convert file paths to signed URLs for faster loading
+      const processedContent = await processContentForSignedUrls(content);
+
+      res.json(processedContent);
     } catch (error) {
       console.error('Error fetching content:', error);
       res.status(500).json({ error: 'Failed to fetch content' });

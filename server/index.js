@@ -6,6 +6,7 @@ import { dirname, join } from 'path';
 import { initDatabase } from './db.js';
 import { setupRoutes } from './routes.js';
 import { isFtpConfigured } from './ftpService.js';
+import { isGcsConfigured } from './gcsService.js';
 
 // Load environment variables from .env.local first, then .env
 const __filename = fileURLToPath(import.meta.url);
@@ -27,14 +28,20 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
   try {
     const db = await initDatabase();
 
-    // Check FTP configuration
-    if (isFtpConfigured()) {
+    // Check storage configuration (GCS or FTP)
+    if (isGcsConfigured()) {
+      console.log('✅ Google Cloud Storage configured');
+      console.log(`   Bucket: ${process.env.GCS_BUCKET_NAME}`);
+      console.log(`   Project: ${process.env.GCS_PROJECT_ID || process.env.GCP_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT}`);
+    } else if (isFtpConfigured()) {
       console.log('✅ FTP storage configured');
       console.log(`   Host: ${process.env.FTP_HOST}`);
       console.log(`   Base URL: ${process.env.FTP_BASE_URL || 'Not set'}`);
     } else {
-      console.warn('⚠️  WARNING: FTP not configured. File uploads will fail.');
-      console.warn('   Please set FTP_HOST, FTP_USER, FTP_PASSWORD, FTP_BASE_PATH, and FTP_BASE_URL environment variables.');
+      console.warn('⚠️  WARNING: Storage not configured. File uploads will fail.');
+      console.warn('   Please set either:');
+      console.warn('     - GCS: GCS_BUCKET_NAME and GCS_PROJECT_ID (or GCP_PROJECT_ID)');
+      console.warn('     - FTP: FTP_HOST, FTP_USER, FTP_PASSWORD, FTP_BASE_PATH, and FTP_BASE_URL');
     }
 
     // Setup API routes (must come before static file serving)
@@ -61,8 +68,10 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
     process.on('SIGTERM', async () => {
       console.log('SIGTERM received, shutting down gracefully...');
       const { closeFtpConnection } = await import('./ftpService.js');
+      const { closeGcsConnection } = await import('./gcsService.js');
       const { closeDatabase } = await import('./db.js');
       await closeFtpConnection();
+      await closeGcsConnection();
       await closeDatabase();
       server.close(() => {
         console.log('Server closed');
@@ -73,8 +82,10 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
     process.on('SIGINT', async () => {
       console.log('\nSIGINT received, shutting down gracefully...');
       const { closeFtpConnection } = await import('./ftpService.js');
+      const { closeGcsConnection } = await import('./gcsService.js');
       const { closeDatabase } = await import('./db.js');
       await closeFtpConnection();
+      await closeGcsConnection();
       await closeDatabase();
       server.close(() => {
         console.log('Server closed');

@@ -13,8 +13,8 @@ export const ProjectGrid: React.FC<ProjectGridProps> = ({ projects, categories, 
 
   const filterCategories = ["Vše", ...categories];
 
-  const filteredProjects = activeCategory === "Vše" 
-    ? projects 
+  const filteredProjects = activeCategory === "Vše"
+    ? projects
     : projects.filter(p => p.category === activeCategory);
 
   useEffect(() => {
@@ -53,8 +53,8 @@ export const ProjectGrid: React.FC<ProjectGridProps> = ({ projects, categories, 
             key={cat}
             onClick={() => setActiveCategory(cat)}
             className={`text-sm uppercase tracking-widest transition-colors ${
-              activeCategory === cat 
-                ? 'text-black font-medium border-b border-black pb-1' 
+              activeCategory === cat
+                ? 'text-black font-medium border-b border-black pb-1'
                 : 'text-gray-400 hover:text-beige-600'
             }`}
           >
@@ -65,7 +65,7 @@ export const ProjectGrid: React.FC<ProjectGridProps> = ({ projects, categories, 
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-3 gap-x-2 md:gap-y-5 md:gap-x-3">
         {filteredProjects.map((project, index) => (
-          <div 
+          <div
             key={project.id}
             onClick={() => onSelect(project)}
             // Start invisible and offset down
@@ -75,11 +75,12 @@ export const ProjectGrid: React.FC<ProjectGridProps> = ({ projects, categories, 
             {/* Thumbnail Container with 3:2 Aspect Ratio */}
             <div className="relative w-full aspect-[3/2] overflow-hidden bg-gray-100">
               {project.thumbnail ? (
-                <img 
-                  src={project.thumbnail} 
+                <img
+                  src={project.thumbnail}
                   alt={project.title}
                   className="w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-105"
                   loading="lazy"
+                  decoding="async"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-300">
@@ -87,7 +88,7 @@ export const ProjectGrid: React.FC<ProjectGridProps> = ({ projects, categories, 
                 </div>
               )}
             </div>
-            
+
             <div className="flex justify-between items-baseline pb-3">
               <h3 className="text-lg font-medium text-gray-900 group-hover:text-black transition-colors">
                 {project.title}
