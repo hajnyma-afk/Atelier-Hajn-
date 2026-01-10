@@ -66,10 +66,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [draggedProjectIndex, setDraggedProjectIndex] = useState<number | null>(null);
 
   useEffect(() => {
-    setAtelierForm(content.atelier);
-    setContactForm(content.contact);
+    // Only update atelierForm if atelier exists and has content
+    // This prevents overwriting existing form state with defaults when atelier is missing from API
+    if (content.atelier && typeof content.atelier === 'object') {
+      const hasAtelierContent = content.atelier.title ||
+        (content.atelier.leftColumn && content.atelier.leftColumn.length > 0) ||
+        (content.atelier.rightColumn && content.atelier.rightColumn.length > 0);
+      if (hasAtelierContent || Object.keys(content.atelier).length > 0) {
+        setAtelierForm(content.atelier);
+      }
+    }
+    // Only update contactForm if contact exists and has content
+    // This prevents overwriting existing form state with defaults when contact is missing from API
+    if (content.contact && typeof content.contact === 'object') {
+      const hasContactContent = content.contact.address || content.contact.email || content.contact.phone;
+      if (hasContactContent || Object.keys(content.contact).length > 0) {
+        setContactForm(content.contact);
+      }
+    }
     setBrandingForm(content.branding || { logo: '', favicon: '' });
-    setHeroForm(content.hero);
+    // Only update heroForm if hero exists and is not empty
+    // This prevents overwriting existing form state with defaults when hero is missing from API
+    if (content.hero && typeof content.hero === 'object') {
+      // Check if hero has at least one non-default field to avoid resetting with empty objects
+      const hasContent = content.hero.title || content.hero.subtitle || content.hero.image || content.hero.video;
+      if (hasContent || Object.keys(content.hero).length > 0) {
+        setHeroForm(content.hero);
+      }
+    }
     setAnalyticsForm(content.analytics || { googleId: '' });
     setSeoForm(content.seo || { title: '', keywords: '', description: '' });
     setCategoriesList(content.categories || []);

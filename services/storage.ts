@@ -154,6 +154,16 @@ export const loadProjects = async (): Promise<Project[]> => {
   }
 };
 
+export const loadProject = async (id: string): Promise<Project | null> => {
+  try {
+    const project = await apiCall(`/projects/${id}`);
+    return project || null;
+  } catch (e) {
+    console.error('Failed to load project', e);
+    return null;
+  }
+};
+
 export const deleteProject = async (id: string): Promise<void> => {
   try {
     await apiCall(`/projects/${id}`, { method: 'DELETE' });
@@ -204,24 +214,34 @@ export const loadContent = async (): Promise<SiteContent> => {
     }
 
     // Migration Logic for Atelier structure (legacy check)
-    let atelier = content.atelier || DEFAULT_CONTENT.atelier;
-    if (!atelier.leftColumn && !atelier.rightColumn) {
-       // Migrate old format to new format
-       const oldAtelier = atelier as any;
-       atelier = {
-         title: oldAtelier.title || "Atelier",
-         leftColumn: oldAtelier.image ? [
-           { id: 'mig-1', type: 'image', content: oldAtelier.image }
-         ] : [],
-         rightColumn: [
-           { id: 'mig-2', type: 'text', content: oldAtelier.intro || '' },
-           { id: 'mig-3', type: 'text', content: `Filosofie\n${oldAtelier.philosophy || ''}` },
-           { id: 'mig-4', type: 'text', content: `Služby\n${(oldAtelier.services || []).join('\n')}` }
-         ]
-       };
+    // Only migrate if atelier exists and is in old format
+    let atelier = content.atelier;
+    if (atelier && typeof atelier === 'object') {
+      // Check if it's in old format (no leftColumn/rightColumn)
+      if (!atelier.leftColumn && !atelier.rightColumn && (atelier.image || atelier.intro || atelier.philosophy || atelier.services)) {
+        // Migrate old format to new format
+        const oldAtelier = atelier as any;
+        atelier = {
+          title: oldAtelier.title || "Atelier",
+          leftColumn: oldAtelier.image ? [
+            { id: 'mig-1', type: 'image', content: oldAtelier.image }
+          ] : [],
+          rightColumn: [
+            { id: 'mig-2', type: 'text', content: oldAtelier.intro || '' },
+            { id: 'mig-3', type: 'text', content: `Filosofie\n${oldAtelier.philosophy || ''}` },
+            { id: 'mig-4', type: 'text', content: `Služby\n${(oldAtelier.services || []).join('\n')}` }
+          ]
+        };
+      }
+    }
+    // Only use defaults if atelier is truly missing (undefined/null)
+    if (!atelier || (typeof atelier === 'object' && Object.keys(atelier).length === 0)) {
+      atelier = DEFAULT_CONTENT.atelier;
     }
 
     // Reconstruct the SiteContent structure
+    // IMPORTANT: Only use defaults if content is actually missing, not if it's an empty object
+    // This prevents overwriting existing content with defaults
     return {
       ...DEFAULT_CONTENT,
       ...content,
@@ -238,13 +258,24 @@ export const loadContent = async (): Promise<SiteContent> => {
         ...(content.seo || {})
       },
       categories: content.categories || DEFAULT_CONTENT.categories,
-      hero: {
-        ...DEFAULT_CONTENT.hero,
-        ...content.hero,
-        textColor: content.hero?.textColor || DEFAULT_CONTENT.hero.textColor
-      },
+      // Merge hero content with defaults, but only if hero actually exists
+      // If hero is undefined/null, use defaults. If hero exists, merge with defaults for missing fields
+      hero: content.hero && typeof content.hero === 'object'
+        ? {
+            ...DEFAULT_CONTENT.hero,
+            ...content.hero,
+            // Ensure textColor has a fallback if missing
+            textColor: content.hero.textColor || DEFAULT_CONTENT.hero.textColor
+          }
+        : DEFAULT_CONTENT.hero,
       atelier: atelier,
-      contact: content.contact || DEFAULT_CONTENT.contact,
+      // Only use defaults if contact is truly missing (undefined/null), not if it's an empty object
+      contact: content.contact && typeof content.contact === 'object' && Object.keys(content.contact).length > 0
+        ? {
+            ...DEFAULT_CONTENT.contact,
+            ...content.contact
+          }
+        : (content.contact || DEFAULT_CONTENT.contact),
     };
   } catch (e) {
     console.error('Failed to load content', e);

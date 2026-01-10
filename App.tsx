@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Post, ViewMode, Project, SiteContent } from './types';
-import { loadPosts, savePosts, loadProjects, saveProjects, loadContent, saveContent, deletePost, deleteProject } from './services/storage';
+import { loadPosts, savePosts, loadProjects, loadProject, saveProjects, loadContent, saveContent, deletePost, deleteProject } from './services/storage';
 import { PostList } from './components/PostList';
 import { Editor } from './components/Editor';
 import { Header } from './components/Header';
@@ -387,12 +387,57 @@ const ProjectGalleryWrapper: React.FC<{
   onClose: () => void;
 }> = ({ projects, onSelect, onClose }) => {
   const { projectSlug } = useParams<{ projectSlug: string }>();
-  const project = projects.find(p => {
+  const [project, setProject] = useState<Project | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Find project from list first (for quick display)
+  const projectFromList = projects.find(p => {
     const projectSlugFromTitle = createSlug(p.title || 'project');
     return projectSlugFromTitle === projectSlug;
   });
 
-  if (!project) {
+  // Fetch full project details with converted image URLs
+  useEffect(() => {
+    if (!projectFromList) {
+      setError('Projekt nenalezen');
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    // Fetch full project details (with converted image URLs)
+    loadProject(projectFromList.id)
+      .then((fullProject) => {
+        if (fullProject) {
+          setProject(fullProject);
+        } else {
+          // Fallback to project from list if fetch fails
+          setProject(projectFromList);
+        }
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        console.error('Failed to load project details:', err);
+        // Fallback to project from list
+        setProject(projectFromList);
+        setIsLoading(false);
+      });
+  }, [projectFromList?.id, projectSlug]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="text-gray-400">Načítání projektu...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !project) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">

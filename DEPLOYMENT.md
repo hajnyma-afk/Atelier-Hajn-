@@ -183,10 +183,10 @@ chmod +x deploy.sh setup-iam.sh
 ./setup-iam.sh your-project-id
 
 # Option A: Deploy with automatic environment variable configuration from .env.local
-./deploy.sh your-project-id us-central1 --use-env-file
+./deploy.sh your-project-id europe-west10 --use-env-file
 
 # Option B: Deploy without automatic configuration (set env vars manually after)
-./deploy.sh your-project-id us-central1
+./deploy.sh your-project-id europe-west10
 ```
 
 The script will:
@@ -242,7 +242,7 @@ gcloud run deploy atelier-hajny \
 
 Edit `cloudbuild.yaml` to customize:
 
-- **Region**: Change `_REGION` substitution (default: `us-central1`)
+- **Region**: Change `_REGION` substitution (default: `europe-west10`)
 - **Memory**: Change `_MEMORY` (default: `512Mi`)
 - **CPU**: Change `_CPU` (default: `1`)
 - **Min/Max Instances**: Adjust `_MIN_INSTANCES` and `_MAX_INSTANCES`

@@ -23,6 +23,7 @@ steps:
   # Deploy container image to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
+    id: 'deploy'
     args:
       - 'run'
       - 'deploy'
@@ -47,6 +48,22 @@ steps:
       - '--timeout'
       - '${_TIMEOUT}'
 
+  # Ensure public access is granted (--allow-unauthenticated sometimes doesn't work in Cloud Build)
+  # Note: This step may fail if Cloud Build service account doesn't have IAM permissions
+  # If it fails, run manually: gcloud run services add-iam-policy-binding atelier-hajny --region=${_REGION} --member=allUsers --role=roles/run.invoker
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: bash
+    id: 'set-iam-policy'
+    waitFor: ['deploy']
+    args:
+      - '-c'
+      - |
+        gcloud run services add-iam-policy-binding atelier-hajny \
+          --region=${_REGION} \
+          --member=allUsers \
+          --role=roles/run.invoker \
+          --project=$PROJECT_ID || (echo "⚠️  IAM policy update failed (non-critical). Service may need manual IAM configuration."; true)
+
 images:
   - 'gcr.io/$PROJECT_ID/atelier-hajny:${_TAG}'
   - 'gcr.io/$PROJECT_ID/atelier-hajny:latest'
@@ -56,7 +73,7 @@ options:
   logging: CLOUD_LOGGING_ONLY
 
 substitutions:
-  _REGION: 'us-central1'
+  _REGION: 'europe-west10'
   _MEMORY: '512Mi'
   _CPU: '1'
   _MIN_INSTANCES: '0'

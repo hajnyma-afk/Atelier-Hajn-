@@ -7,9 +7,10 @@ set -e
 
 USE_ENV_FILE=false
 PROJECT_ID=""
-REGION="us-central1"
+REGION="europe-west10"
 
 # Parse arguments
+REGION_SET=false
 while [[ $# -gt 0 ]]; do
   case $1 in
     --use-env-file|-e)
@@ -19,8 +20,10 @@ while [[ $# -gt 0 ]]; do
     *)
       if [ -z "$PROJECT_ID" ]; then
         PROJECT_ID=$1
-      elif [ "$REGION" = "us-central1" ]; then
+      elif [ "$REGION_SET" = false ]; then
+        # Second argument is region
         REGION=$1
+        REGION_SET=true
       else
         echo "Error: Unknown argument: $1"
         echo "Usage: ./deploy.sh [project-id] [region] [--use-env-file|-e]"

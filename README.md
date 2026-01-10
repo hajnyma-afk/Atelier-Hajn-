@@ -353,14 +353,14 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed Cloud Run deployment instructi
 # Make sure your .env.local contains ADMIN_PASSWORD and FTP_* variables
 
 # 3. Deploy to Cloud Run (with automatic env var configuration)
-./deploy.sh your-project-id us-central1 --use-env-file
+./deploy.sh your-project-id europe-west10 --use-env-file
 
 # Or deploy without automatic configuration and set env vars manually:
-./deploy.sh your-project-id us-central1
+./deploy.sh your-project-id europe-west10
 
 # Then set environment variables manually:
 gcloud run services update atelier-hajny \
-  --region=us-central1 \
+  --region=europe-west10 \
   --update-env-vars="ADMIN_PASSWORD=your-secure-password-here,FTP_HOST=ftp.yourdomain.com,FTP_USER=your_ftp_user,FTP_PASSWORD=your_ftp_password,FTP_PORT=21,FTP_SECURE=false,FTP_BASE_PATH=/public_html/uploads,FTP_BASE_URL=https://yourdomain.com/uploads"
 ```
 

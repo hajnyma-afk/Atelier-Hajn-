@@ -13,12 +13,26 @@ export function generateFileName(originalName, mimeType) {
 /**
  * Extract just the filename from a path or URL
  * Handles paths like /bucket-name/filename.webp, /api/images/filename.webp, etc.
+ * Also handles signed URLs by extracting just the filename before query parameters
  */
 export function extractFileName(filePath) {
   if (!filePath || typeof filePath !== 'string') return filePath;
 
   let fileName = filePath;
-  // Remove protocol and domain if present
+
+  // If it's a full signed URL (starts with https://), extract filename from URL path
+  if (fileName.startsWith('https://')) {
+    try {
+      const url = new URL(fileName);
+      // Get the pathname and extract filename
+      const pathParts = url.pathname.split('/').filter(p => p.length > 0);
+      fileName = pathParts[pathParts.length - 1] || fileName;
+    } catch (e) {
+      // If URL parsing fails, continue with string manipulation
+    }
+  }
+
+  // Remove protocol and domain if present (for URLs without https:// prefix)
   fileName = fileName.replace(/^https?:\/\/[^\/]+/, '');
   // Remove /api/images/ prefix (FTP proxy endpoint)
   fileName = fileName.replace(/^\/api\/images\//, '');
@@ -26,6 +40,11 @@ export function extractFileName(filePath) {
   fileName = fileName.replace(/^\/uploads\//, '').replace(/^uploads\//, '');
   // Remove GCS URL prefix if present
   fileName = fileName.replace(/^https:\/\/storage\.googleapis\.com\/[^\/]+\//, '');
+
+  // Remove query parameters (for signed URLs that might have been partially processed)
+  if (fileName.includes('?')) {
+    fileName = fileName.split('?')[0];
+  }
 
   // Handle paths that contain / (like /bucket-name/filename.webp or bucket-name/filename.webp)
   // Extract just the filename (everything after the last /)

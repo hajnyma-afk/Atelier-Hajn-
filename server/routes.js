@@ -49,7 +49,12 @@ async function convertToSignedUrls(filePaths) {
         // Generate signed URL valid for 24 hours
         const signedUrl = await getGcsSignedUrl(fileName, 24 * 60);
         // If signed URL generation returned null (missing credentials), fall back to proxy
-        return signedUrl || getFileUrl(filePath);
+        if (signedUrl) {
+          // Return the full signed URL as-is (it's a complete URL)
+          return signedUrl;
+        }
+        // Fall back to proxy URL if signed URL generation is not possible
+        return getFileUrl(filePath);
       } catch (error) {
         // Fallback to proxy URL if signed URL generation fails
         return getFileUrl(filePath);
@@ -78,7 +83,12 @@ async function convertToSignedUrl(filePath) {
     const fileName = extractFileName(filePath);
     const signedUrl = await getGcsSignedUrl(fileName, 24 * 60);
     // If signed URL generation returned null (missing credentials), fall back to proxy
-    return signedUrl || getFileUrl(filePath);
+    if (signedUrl) {
+      // Return the full signed URL as-is (it's a complete URL)
+      return signedUrl;
+    }
+    // Fall back to proxy URL if signed URL generation is not possible
+    return getFileUrl(filePath);
   } catch (error) {
     // Fallback to proxy URL if signed URL generation fails
     return getFileUrl(filePath);
@@ -161,21 +171,54 @@ export function setupRoutes(app, db) {
         return (b.created_at || 0) - (a.created_at || 0);
       });
 
-      // Convert file paths to signed URLs for faster loading
-      const projectsWithImages = await Promise.all(
-        projects.map(async (project) => {
-          const images = await convertToSignedUrls(project.images || []);
-          const thumbnail = await convertToSignedUrl(project.thumbnail);
+      // OPTIMIZATION: Only convert thumbnails to signed URLs for list view
+      // Gallery images will be loaded lazily when project is opened (via /api/projects/:id)
+      // This significantly reduces the number of signed URL generations
+      const thumbnailsToConvert = projects
+        .map(p => p.thumbnail)
+        .filter(Boolean);
 
-          return {
-            ...project,
-            thumbnail,
-            images
-          };
-        })
+      // Batch convert all thumbnails in parallel
+      const thumbnailUrls = await Promise.all(
+        thumbnailsToConvert.map(thumb => convertToSignedUrl(thumb))
       );
 
-      res.json(projectsWithImages);
+      // Map thumbnails back to projects
+      let thumbnailIndex = 0;
+      const projectsWithThumbnails = projects.map((project) => {
+        const processedProject = {
+          ...project,
+          // Keep images array but don't convert URLs yet (lazy loading)
+          images: project.images || []
+        };
+
+        // Assign converted thumbnail if it exists
+        if (project.thumbnail) {
+          processedProject.thumbnail = thumbnailUrls[thumbnailIndex];
+          thumbnailIndex++;
+        }
+
+        return processedProject;
+      });
+
+      // Set caching headers for better performance
+      // Generate ETag based on project IDs and count (content-based)
+      const projectIds = projects.map(p => p.id).join(',');
+      const contentHash = Buffer.from(projectIds).toString('base64').substring(0, 16);
+      const etag = `"${projects.length}-${contentHash}"`;
+
+      res.set({
+        'Cache-Control': 'public, max-age=300, s-maxage=300', // 5 minutes cache
+        'ETag': etag,
+        'Content-Type': 'application/json'
+      });
+
+      // Check if client has cached version
+      if (req.headers['if-none-match'] === etag) {
+        return res.status(304).end(); // Not Modified
+      }
+
+      res.json(projectsWithThumbnails);
     } catch (error) {
       console.error('Error fetching projects:', error);
       res.status(500).json({ error: 'Failed to fetch projects' });
