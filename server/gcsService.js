@@ -1,6 +1,7 @@
 import { Storage } from '@google-cloud/storage';
 import { homedir } from 'os';
 import { resolve } from 'path';
+import { accessSync, constants } from 'fs';
 
 let storageClient = null;
 let bucketInstance = null;
@@ -49,7 +50,13 @@ function initGcsClient() {
   const keyFile = process.env.GCS_KEY_FILE || process.env.GOOGLE_APPLICATION_CREDENTIALS;
   if (keyFile) {
     const expandedKeyFile = expandTilde(keyFile);
-    storageConfig.keyFilename = expandedKeyFile;
+    // Check if file exists
+    try {
+      accessSync(expandedKeyFile, constants.F_OK);
+      storageConfig.keyFilename = expandedKeyFile;
+    } catch (error) {
+      throw new Error(`GCS key file not found: ${expandedKeyFile}. Please check GCS_KEY_FILE or GOOGLE_APPLICATION_CREDENTIALS environment variable.`);
+    }
   }
   // Check for key JSON (Cloud Run - can be set as env var or secret)
   else if (process.env.GCS_KEY_JSON) {
@@ -64,9 +71,12 @@ function initGcsClient() {
     }
   }
 
-  storageClient = new Storage(storageConfig);
-
-  bucketInstance = storageClient.bucket(bucketName);
+  try {
+    storageClient = new Storage(storageConfig);
+    bucketInstance = storageClient.bucket(bucketName);
+  } catch (error) {
+    throw new Error(`Failed to initialize GCS client: ${error.message}. Please check your GCS configuration and credentials.`);
+  }
 
   return { storage: storageClient, bucket: bucketInstance };
 }
@@ -86,7 +96,14 @@ export function getGcsBucket() {
  * @returns {Promise<string>} - Public URL of the uploaded file
  */
 export async function uploadToGcs(buffer, remotePath) {
-  const { bucket } = initGcsClient();
+  let bucket;
+  try {
+    const result = initGcsClient();
+    bucket = result.bucket;
+  } catch (error) {
+    console.error('GCS client initialization error:', error);
+    throw new Error(`GCS client initialization failed: ${error.message}`);
+  }
 
   try {
     const file = bucket.file(remotePath);
@@ -110,7 +127,23 @@ export async function uploadToGcs(buffer, remotePath) {
     const bucketName = process.env.GCS_BUCKET_NAME;
     return `https://storage.googleapis.com/${bucketName}/${remotePath}`;
   } catch (error) {
-    throw new Error(`GCS upload failed: ${error.message}`);
+    console.error('GCS upload error details:', {
+      message: error.message,
+      code: error.code,
+      remotePath,
+      bucketName: process.env.GCS_BUCKET_NAME
+    });
+
+    // Provide more helpful error messages
+    if (error.code === 403) {
+      throw new Error(`GCS upload failed: Permission denied. Check that your service account has Storage Object Creator role on bucket ${process.env.GCS_BUCKET_NAME}`);
+    } else if (error.code === 404) {
+      throw new Error(`GCS upload failed: Bucket not found: ${process.env.GCS_BUCKET_NAME}. Check that the bucket exists and is accessible.`);
+    } else if (error.message && error.message.includes('Could not load the default credentials')) {
+      throw new Error(`GCS upload failed: Authentication failed. Please set GCS_KEY_FILE, GOOGLE_APPLICATION_CREDENTIALS, or GCS_KEY_JSON environment variable.`);
+    }
+
+    throw new Error(`GCS upload failed: ${error.message} (code: ${error.code || 'unknown'})`);
   }
 }
 
@@ -217,15 +250,26 @@ export async function getGcsSignedUrl(remotePath, expirationMinutes = 60) {
 
     return signedUrl;
   } catch (error) {
-    // If signing fails due to missing credentials, return null
+    // If signing fails due to missing credentials or permissions, return null
     // The caller will fall back to proxy URLs
-    if (error.message.includes('client_email') || error.message.includes('Cannot sign')) {
+    const errorMsg = error.message || '';
+    if (errorMsg.includes('client_email') ||
+        errorMsg.includes('Cannot sign') ||
+        errorMsg.includes('signBlob') ||
+        (errorMsg.includes('Permission') && errorMsg.includes('denied'))) {
       // Show warning once about enabling signed URLs for better performance
       if (!signedUrlWarningShown) {
-        console.warn('⚠️  Signed URLs not available (missing service account key).');
-        console.warn('   Images will use proxy endpoint (slower but works).');
-        console.warn('   To enable faster signed URLs, set GCS_KEY_FILE or GOOGLE_APPLICATION_CREDENTIALS');
-        console.warn('   to point to a service account key file with Storage Object Viewer role.');
+        console.warn('⚠️  Signed URLs not available.');
+        if (errorMsg.includes('signBlob') || (errorMsg.includes('Permission') && errorMsg.includes('denied'))) {
+          console.warn('   Error: Missing iam.serviceAccounts.signBlob permission.');
+          console.warn('   Solution: Grant roles/iam.serviceAccountTokenCreator to your Cloud Run service account:');
+          console.warn('   Run: ./fix-cloud-run-signblob.sh [project-id]');
+          console.warn('   Or set GCS_KEY_JSON with gcs-signed-urls service account key.');
+        } else {
+          console.warn('   Images will use proxy endpoint (slower but works).');
+          console.warn('   To enable faster signed URLs, set GCS_KEY_FILE or GOOGLE_APPLICATION_CREDENTIALS');
+          console.warn('   to point to a service account key file with Storage Object Viewer role.');
+        }
         signedUrlWarningShown = true;
       }
       return null;

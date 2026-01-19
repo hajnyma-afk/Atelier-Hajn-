@@ -2,8 +2,54 @@ import React, { useState, useEffect } from 'react';
 import { Project, SiteContent, AtelierBlock, AtelierBlockType } from '../types';
 import { Plus, Trash2, Edit2, LogOut, X, Upload, Image as ImageIcon, Crop, GripHorizontal, GripVertical, FileVideo, BarChart, Search, Tag, Video, List, Check, Youtube, Link as LinkIcon, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from './Button';
-import { savePassword, uploadFile, uploadMultipleFiles, deleteProject, saveContent } from '../services/storage';
+import { savePassword, uploadFile, uploadMultipleFiles, deleteProject, saveContent, loadProject } from '../services/storage';
 import { ImageCropper } from './ImageCropper';
+
+/**
+ * Convert any image URL (including signed URLs) to a proxy URL for reliable display
+ * This ensures images load correctly even if signed URLs expire or have CORS issues
+ */
+function convertToProxyUrl(url: string | null | undefined): string | null {
+  if (!url || typeof url !== 'string') return url || null;
+
+  // If it's already a proxy URL, return as-is
+  if (url.startsWith('/api/images/')) {
+    return url;
+  }
+
+  // If it's a signed URL or GCS URL, extract filename and convert to proxy URL
+  if (url.includes('storage.googleapis.com') || url.includes('?')) {
+    try {
+      // Extract filename from URL
+      let fileName = url;
+
+      // Remove query parameters (for signed URLs)
+      if (fileName.includes('?')) {
+        fileName = fileName.split('?')[0];
+      }
+
+      // Extract filename from path
+      if (fileName.includes('/')) {
+        const parts = fileName.split('/').filter(p => p.length > 0);
+        fileName = parts[parts.length - 1];
+      }
+
+      // Remove protocol and domain
+      fileName = fileName.replace(/^https?:\/\/[^\/]+/, '');
+      fileName = fileName.replace(/^\/api\/images\//, '');
+      fileName = fileName.replace(/^\/uploads\//, '');
+
+      // Return proxy URL
+      return `/api/images/${fileName}`;
+    } catch (e) {
+      // If conversion fails, return original URL
+      return url;
+    }
+  }
+
+  // For relative URLs or other formats, return as-is
+  return url;
+}
 
 interface AdminDashboardProps {
   projects: Project[];
@@ -1179,7 +1225,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </td>
                           <td className="p-4 w-24">
                             {project.thumbnail ? (
-                              <img src={project.thumbnail} alt="" className="w-16 h-10 object-cover rounded-sm border border-gray-100" />
+                              <img
+                                src={project.thumbnail}
+                                alt=""
+                                className="w-16 h-10 object-cover rounded-sm border border-gray-100"
+                                loading="lazy"
+                                onError={(e) => {
+                                  // Fallback to proxy URL if signed URL fails
+                                  const target = e.target as HTMLImageElement;
+                                  const proxyUrl = convertToProxyUrl(project.thumbnail);
+                                  if (proxyUrl && target.src !== proxyUrl) {
+                                    console.log('Thumbnail failed, falling back to proxy:', proxyUrl);
+                                    target.src = proxyUrl;
+                                  } else {
+                                    console.error('Thumbnail failed to load:', project.thumbnail);
+                                  }
+                                }}
+                                onLoad={() => {
+                                  // Debug: log successful loads
+                                  if (process.env.NODE_ENV === 'development') {
+                                    console.log('Thumbnail loaded successfully:', project.thumbnail?.substring(0, 50) + '...');
+                                  }
+                                }}
+                              />
                             ) : (
                               <div className="w-16 h-10 bg-gray-100 rounded-sm flex items-center justify-center">
                                 <ImageIcon size={16} className="text-gray-300"/>
@@ -1190,7 +1258,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <td className="p-4 text-gray-500 text-sm">{project.category || '—'}</td>
                           <td className="p-4 text-gray-500">{project.location}, {project.year}</td>
                           <td className="p-4 text-right space-x-2">
-                            <button onClick={() => setEditingProject(project)} className="p-2 text-gray-400 hover:text-blue-600">
+                            <button
+                              onClick={async () => {
+                                // Fetch full project details with converted image URLs
+                                const fullProject = await loadProject(project.id);
+                                if (fullProject) {
+                                  setEditingProject(fullProject);
+                                } else {
+                                  // Fallback to project from list if fetch fails
+                                  setEditingProject(project);
+                                }
+                              }}
+                              className="p-2 text-gray-400 hover:text-blue-600"
+                            >
                               <Edit2 size={16} />
                             </button>
                             <button onClick={() => handleDeleteProject(project.id)} className="p-2 text-gray-400 hover:text-red-600">
@@ -1398,7 +1478,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     </div>
                                   </div>
                                 ) : (
-                                  <img src={img} alt={`Gallery ${idx}`} className="w-full h-full object-cover pointer-events-none" />
+                                  <img
+                                    src={img.startsWith('http') || img.startsWith('/') ? img : `/api/images/${img}`}
+                                    alt={`Gallery ${idx}`}
+                                    className="w-full h-full object-cover pointer-events-none"
+                                    onError={(e) => {
+                                      // Fallback: try proxy URL if direct URL fails
+                                      const target = e.target as HTMLImageElement;
+                                      if (!img.startsWith('/api/images/') && !img.startsWith('http')) {
+                                        target.src = `/api/images/${img}`;
+                                      }
+                                    }}
+                                  />
                                 )}
 
                                 <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">

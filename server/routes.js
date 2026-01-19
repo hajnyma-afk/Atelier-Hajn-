@@ -174,32 +174,29 @@ export function setupRoutes(app, db) {
       // OPTIMIZATION: Only convert thumbnails to signed URLs for list view
       // Gallery images will be loaded lazily when project is opened (via /api/projects/:id)
       // This significantly reduces the number of signed URL generations
-      const thumbnailsToConvert = projects
-        .map(p => p.thumbnail)
-        .filter(Boolean);
+      // Convert thumbnails directly in the map to ensure proper mapping
+      const projectsWithThumbnails = await Promise.all(
+        projects.map(async (project) => {
+          const processedProject = {
+            ...project,
+            // Keep images array but don't convert URLs yet (lazy loading)
+            images: project.images || []
+          };
 
-      // Batch convert all thumbnails in parallel
-      const thumbnailUrls = await Promise.all(
-        thumbnailsToConvert.map(thumb => convertToSignedUrl(thumb))
+          // Convert thumbnail if it exists
+          if (project.thumbnail) {
+            try {
+              processedProject.thumbnail = await convertToSignedUrl(project.thumbnail);
+            } catch (error) {
+              console.error(`Error converting thumbnail for project ${project.id}:`, error);
+              // Fallback to original thumbnail or proxy URL
+              processedProject.thumbnail = project.thumbnail;
+            }
+          }
+
+          return processedProject;
+        })
       );
-
-      // Map thumbnails back to projects
-      let thumbnailIndex = 0;
-      const projectsWithThumbnails = projects.map((project) => {
-        const processedProject = {
-          ...project,
-          // Keep images array but don't convert URLs yet (lazy loading)
-          images: project.images || []
-        };
-
-        // Assign converted thumbnail if it exists
-        if (project.thumbnail) {
-          processedProject.thumbnail = thumbnailUrls[thumbnailIndex];
-          thumbnailIndex++;
-        }
-
-        return processedProject;
-      });
 
       // Set caching headers for better performance
       // Generate ETag based on project IDs and count (content-based)
@@ -372,6 +369,7 @@ export function setupRoutes(app, db) {
 
   // Upload single file (image or video)
   app.post('/api/upload', upload.single('file'), async (req, res) => {
+    let storageType;
     try {
       if (!req.file) {
         return res.status(400).json({ error: 'No file provided' });
@@ -382,15 +380,21 @@ export function setupRoutes(app, db) {
       }
 
       const fileName = generateFileName(req.file.originalname, req.file.mimetype);
-      const storageType = getStorageType();
+      storageType = getStorageType();
 
       let fileUrl;
       if (storageType === 'gcs') {
         await uploadToGcs(req.file.buffer, fileName);
         // Try to generate signed URL for immediate use (valid for 24 hours)
         // Falls back to proxy URL if signing is not possible
-        const signedUrl = await getGcsSignedUrl(fileName, 24 * 60);
-        fileUrl = signedUrl || getFileUrl(fileName);
+        try {
+          const signedUrl = await getGcsSignedUrl(fileName, 24 * 60);
+          fileUrl = signedUrl || getFileUrl(fileName);
+        } catch (signError) {
+          // If signed URL generation fails, fall back to proxy URL
+          console.warn('Signed URL generation failed, using proxy URL:', signError.message);
+          fileUrl = getFileUrl(fileName);
+        }
       } else {
         fileUrl = await uploadToFtp(req.file.buffer, fileName);
       }
@@ -400,8 +404,15 @@ export function setupRoutes(app, db) {
         fileName: fileName
       });
     } catch (error) {
-      console.error('Error uploading file:', error);
-      res.status(500).json({ error: `Failed to upload file: ${error.message}` });
+      const storageType = getStorageType();
+      console.error('Error uploading file:', {
+        message: error.message,
+        stack: error.stack,
+        storageType: storageType || 'unknown',
+        fileName: req.file?.originalname
+      });
+      const errorMessage = error.message || 'Unknown error occurred';
+      res.status(500).json({ error: `Failed to upload file: ${errorMessage}` });
     }
   });
 
@@ -439,8 +450,15 @@ export function setupRoutes(app, db) {
 
       res.json({ files: uploadedFiles });
     } catch (error) {
-      console.error('Error uploading files:', error);
-      res.status(500).json({ error: `Failed to upload files: ${error.message}` });
+      const storageType = getStorageType();
+      console.error('Error uploading files:', {
+        message: error.message,
+        stack: error.stack,
+        storageType: storageType || 'unknown',
+        fileCount: req.files?.length
+      });
+      const errorMessage = error.message || 'Unknown error occurred';
+      res.status(500).json({ error: `Failed to upload files: ${errorMessage}` });
     }
   });
 
@@ -599,8 +617,21 @@ export function setupRoutes(app, db) {
         }
       }
     } catch (error) {
-      console.error('Error proxying file:', error);
-      res.status(404).json({ error: `File not found: ${error.message}` });
+      console.error('Error proxying file:', {
+        message: error.message,
+        stack: error.stack,
+        fileName: req.params.fileName,
+        storageType: getStorageType()
+      });
+
+      // Return appropriate status code based on error type
+      if (error.code === 404 || error.message.includes('not found')) {
+        res.status(404).json({ error: `File not found: ${req.params.fileName}` });
+      } else if (error.code === 403 || error.message.includes('Permission denied') || error.message.includes('authentication')) {
+        res.status(500).json({ error: `Storage authentication failed: ${error.message}. Please check your storage configuration.` });
+      } else {
+        res.status(500).json({ error: `Failed to load file: ${error.message}` });
+      }
     }
   });
 

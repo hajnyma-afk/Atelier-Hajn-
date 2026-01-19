@@ -9,6 +9,52 @@ interface ImageCropperProps {
   onCancel: () => void;
 }
 
+/**
+ * Convert any image URL (including signed URLs) to a proxy URL for CORS-safe cropping
+ * This ensures canvas.toDataURL() works without CORS errors
+ */
+function convertToProxyUrl(url: string): string {
+  if (!url || typeof url !== 'string') return url;
+
+  // If it's already a proxy URL, return as-is
+  if (url.startsWith('/api/images/')) {
+    return url;
+  }
+
+  // If it's a signed URL or GCS URL, extract filename and convert to proxy URL
+  if (url.includes('storage.googleapis.com') || url.includes('?')) {
+    try {
+      // Extract filename from URL
+      let fileName = url;
+
+      // Remove query parameters (for signed URLs)
+      if (fileName.includes('?')) {
+        fileName = fileName.split('?')[0];
+      }
+
+      // Extract filename from path
+      if (fileName.includes('/')) {
+        const parts = fileName.split('/').filter(p => p.length > 0);
+        fileName = parts[parts.length - 1];
+      }
+
+      // Remove protocol and domain
+      fileName = fileName.replace(/^https?:\/\/[^\/]+/, '');
+      fileName = fileName.replace(/^\/api\/images\//, '');
+      fileName = fileName.replace(/^\/uploads\//, '');
+
+      // Return proxy URL
+      return `/api/images/${fileName}`;
+    } catch (e) {
+      // If conversion fails, return original URL
+      return url;
+    }
+  }
+
+  // For relative URLs or other formats, return as-is
+  return url;
+}
+
 export const ImageCropper: React.FC<ImageCropperProps> = ({
   imageSrc,
   aspectRatio,
@@ -35,9 +81,13 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
     setImageError(null);
     setImageSize({ width: 0, height: 0 });
 
+    // Convert signed URLs to proxy URLs to avoid CORS issues
+    const proxyUrl = convertToProxyUrl(imageSrc);
+
     const img = new Image();
-    // Images are now proxied through backend, so CORS is not needed
-    img.src = imageSrc;
+    // Set crossOrigin to allow CORS (needed for proxy URLs)
+    img.crossOrigin = 'anonymous';
+    img.src = proxyUrl;
 
     img.onload = () => {
       setImageSize({ width: img.naturalWidth, height: img.naturalHeight });
@@ -57,8 +107,8 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
     };
 
     img.onerror = (error) => {
-      console.error('Failed to load image in cropper:', imageSrc, error);
-      setImageError(`Nepodařilo se načíst obrázek. Zkontrolujte URL: ${imageSrc}`);
+      console.error('Failed to load image in cropper:', proxyUrl, error);
+      setImageError(`Nepodařilo se načíst obrázek. Zkontrolujte URL: ${proxyUrl}`);
     };
   }, [imageSrc, cropHeight]);
 
@@ -161,7 +211,8 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({
               ) : imageSrc && imageLoaded ? (
                 <img
                   ref={imageRef}
-                  src={imageSrc}
+                  src={convertToProxyUrl(imageSrc)}
+                  crossOrigin="anonymous"
                   alt="Crop target"
                   className="max-w-none absolute origin-top-left pointer-events-none"
                   style={{
