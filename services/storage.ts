@@ -151,7 +151,8 @@ const DEFAULT_CONTENT: SiteContent = {
   contact: {
     address: "Nitranská 19, 130 00 Praha 3, Česká Republika",
     email: "hello@zencms.studio",
-    phone: "+420 123 456 789"
+    phone: "+420 123 456 789",
+    info: ""
   }
 };
 
@@ -302,7 +303,7 @@ export const loadContent = async (): Promise<SiteContent> => {
         textColor: content.hero?.textColor || DEFAULT_CONTENT.hero.textColor
       },
       atelier: atelier,
-      contact: { ...DEFAULT_CONTENT.contact, ...(content.contact || {}) }
+      contact: { ...DEFAULT_CONTENT.contact, ...(content.contact || {}), info: content.contact?.info || '' }
     };
   } catch (e) {
     return DEFAULT_CONTENT;

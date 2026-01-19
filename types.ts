@@ -65,6 +65,7 @@ export interface SiteContent {
     address: string;
     email: string;
     phone: string;
+    info?: string;
   };
 }
 
