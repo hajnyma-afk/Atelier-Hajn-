@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ArrowDown } from 'lucide-react';
 import { SiteContent } from '../types';
 
@@ -9,6 +9,50 @@ interface HeroProps {
 }
 
 export const Hero: React.FC<HeroProps> = ({ onScrollDown, onContact, content }) => {
+  // Preload hero media for faster loading
+  useEffect(() => {
+    const linksToRemove: HTMLLinkElement[] = [];
+
+    // Add DNS prefetch for GCS if using signed URLs
+    if (content.image?.includes('storage.googleapis.com') || content.video?.includes('storage.googleapis.com')) {
+      const link = document.createElement('link');
+      link.rel = 'dns-prefetch';
+      link.href = 'https://storage.googleapis.com';
+      document.head.appendChild(link);
+      linksToRemove.push(link);
+    }
+
+    // Preload hero image (highest priority)
+    if (content.image) {
+      const link = document.createElement('link');
+      link.rel = 'preload';
+      link.as = 'image';
+      link.href = content.image;
+      link.setAttribute('fetchpriority', 'high');
+      document.head.appendChild(link);
+      linksToRemove.push(link);
+    }
+
+    // Preload hero video (high priority, but after image)
+    if (content.video) {
+      const link = document.createElement('link');
+      link.rel = 'preload';
+      link.as = 'video';
+      link.href = content.video;
+      link.setAttribute('fetchpriority', 'high');
+      document.head.appendChild(link);
+      linksToRemove.push(link);
+    }
+
+    // Cleanup function to remove preload links when component unmounts or content changes
+    return () => {
+      linksToRemove.forEach(link => {
+        if (link.parentNode) {
+          link.parentNode.removeChild(link);
+        }
+      });
+    };
+  }, [content.image, content.video]);
   const positionClasses = {
     // Top
     'top-left': 'justify-start items-start text-left',
@@ -53,6 +97,9 @@ export const Hero: React.FC<HeroProps> = ({ onScrollDown, onContact, content }) 
             className="absolute inset-0 w-full h-full object-cover z-0"
             fetchPriority="high"
             loading="eager"
+            decoding="async"
+            width="1920"
+            height="1080"
           />
         )}
 
@@ -65,8 +112,15 @@ export const Hero: React.FC<HeroProps> = ({ onScrollDown, onContact, content }) 
             loop
             muted
             playsInline
+            preload="auto"
             className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 z-10"
             onLoadedData={(e) => (e.currentTarget.style.opacity = '1')}
+            onCanPlay={(e) => {
+              // Start playing immediately when enough data is loaded
+              e.currentTarget.play().catch(() => {
+                // Ignore autoplay errors (browser restrictions)
+              });
+            }}
             style={{ opacity: 0 }}
           />
         )}

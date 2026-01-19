@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Project, SiteContent, AtelierBlock, AtelierBlockType } from '../types';
 import { Plus, Trash2, Edit2, LogOut, X, Upload, Image as ImageIcon, Crop, GripHorizontal, GripVertical, FileVideo, BarChart, Search, Tag, Video, List, Check, Youtube, Link as LinkIcon, ArrowUp, ArrowDown } from 'lucide-react';
@@ -1803,12 +1804,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                      onChange={e => setContactForm({...contactForm, email: e.target.value})}
                    />
                 </div>
-                 <div className="space-y-1">
+                <div className="space-y-1">
                    <label className="text-xs uppercase tracking-widest text-gray-500">Telefon</label>
                    <input
                      className={inputBaseStyle}
                      value={contactForm.phone}
                      onChange={e => setContactForm({...contactForm, phone: e.target.value})}
+                   />
+                </div>
+                <div className="space-y-1">
+                   <label className="text-xs uppercase tracking-widest text-gray-500">Doplňující informace (např. otevírací doba)</label>
+                   <textarea
+                     rows={3}
+                     className={`${inputBaseStyle} resize-none`}
+                     value={contactForm.info || ''}
+                     onChange={e => setContactForm({...contactForm, info: e.target.value})}
+                     placeholder="Zadejte doplňující text..."
                    />
                 </div>
                 <Button onClick={handleSaveContent}>Uložit změny</Button>

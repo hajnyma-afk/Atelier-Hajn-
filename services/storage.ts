@@ -82,7 +82,8 @@ const DEFAULT_CONTENT: SiteContent = {
   contact: {
     address: "Nitranská 19, 130 00 Praha 3, Česká Republika",
     email: "hello@zencms.studio",
-    phone: "+420 123 456 789"
+    phone: "+420 123 456 789",
+    info: ""
   }
 };
 
@@ -273,7 +274,8 @@ export const loadContent = async (): Promise<SiteContent> => {
       contact: content.contact && typeof content.contact === 'object' && Object.keys(content.contact).length > 0
         ? {
             ...DEFAULT_CONTENT.contact,
-            ...content.contact
+            ...content.contact,
+            info: content.contact.info || ''
           }
         : (content.contact || DEFAULT_CONTENT.contact),
     };

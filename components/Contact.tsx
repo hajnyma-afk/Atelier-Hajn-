@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { SiteContent } from '../types';
 import { submitContactForm } from '../services/storage';
@@ -41,7 +40,6 @@ export const Contact: React.FC<ContactProps> = ({ content }) => {
       setIsSubmitting(false);
     }
   };
-
   return (
     <div className="w-full max-w-[95%] md:max-w-[75%] mx-auto px-6 py-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="max-w-5xl">
@@ -65,12 +63,36 @@ export const Contact: React.FC<ContactProps> = ({ content }) => {
 
               <div>
                 <h3 className="text-sm uppercase tracking-widest text-gray-400 mb-4">Spojení</h3>
-                <p className="text-xl text-gray-900 mb-2">
-                  <a href={`mailto:${content.email}`} className="hover:text-gray-500 transition-colors">{content.email}</a>
-                </p>
-                <p className="text-xl text-gray-900">
-                  <a href={`tel:${content.phone.replace(/\s/g, '')}`} className="hover:text-gray-500 transition-colors">{content.phone}</a>
-                </p>
+                <div className="space-y-6">
+                  <div>
+                    <p className="text-xl text-gray-900">
+                      <a href={`mailto:${content.email}`} className="hover:text-beige-600 transition-colors border-b border-transparent hover:border-beige-600">
+                        {content.email}
+                      </a>
+                    </p>
+                  </div>
+
+                  {content.info && (
+                    <div>
+                      <p className="text-xl text-gray-900 whitespace-pre-line">
+                        {content.info}
+                      </p>
+                    </div>
+                  )}
+
+                  <div>
+                    <p className="text-xl text-gray-900">
+                      <a
+                        href="https://www.facebook.com/atelierhajny/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-beige-600 transition-colors border-b border-transparent hover:border-beige-600"
+                      >
+                        Facebook
+                      </a>
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 
