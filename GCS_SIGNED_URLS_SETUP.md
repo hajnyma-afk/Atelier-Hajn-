@@ -73,7 +73,7 @@ For Cloud Run, you have two options:
    ```bash
    # Get Cloud Run service account
    CLOUD_RUN_SA=$(gcloud run services describe atelier-hajny \
-     --region=europe-west10 \
+     --region=europe-west4 \
      --format='value(spec.template.spec.serviceAccountName)' \
      --project=YOUR_PROJECT_ID)
 
@@ -92,7 +92,7 @@ For Cloud Run, you have two options:
 3. **Mount secret as environment variable in Cloud Run**:
    ```bash
    gcloud run services update atelier-hajny \
-     --region=europe-west10 \
+     --region=europe-west4 \
      --update-secrets=GCS_KEY_JSON=gcs-signed-urls-key:latest \
      --project=YOUR_PROJECT_ID
    ```
@@ -110,7 +110,7 @@ For Cloud Run, you have two options:
    KEY_JSON=$(cat ~/gcs-signed-urls-key.json | tr -d '\n' | sed 's/"/\\"/g')
 
    gcloud run services update atelier-hajny \
-     --region=europe-west10 \
+     --region=europe-west4 \
      --update-env-vars="GCS_KEY_JSON=${KEY_JSON}" \
      --project=YOUR_PROJECT_ID
    ```
@@ -142,7 +142,7 @@ After setup, restart your server and check the logs. You should see:
 **Cloud Run deployment issues:**
 - Make sure Secret Manager API is enabled: `gcloud services enable secretmanager.googleapis.com`
 - Verify the Cloud Run service account has access to the secret
-- Check Cloud Run logs: `gcloud run services logs read atelier-hajny --region=europe-west10`
+- Check Cloud Run logs: `gcloud run services logs read atelier-hajny --region=europe-west4`
 
 ## Security Notes
 

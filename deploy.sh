@@ -7,7 +7,7 @@ set -e
 
 USE_ENV_FILE=false
 PROJECT_ID=""
-REGION="europe-west10"
+REGION="europe-west4"
 
 # Parse arguments
 REGION_SET=false
