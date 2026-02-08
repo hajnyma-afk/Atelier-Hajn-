@@ -25,6 +25,18 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// Log crawler/bot requests for debugging (helpful for Search Console issues)
+app.use((req, res, next) => {
+  const userAgent = req.get('user-agent') || '';
+  const isCrawler = /bot|crawler|spider|crawling|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|sogou|exabot|facebot|ia_archiver/i.test(userAgent);
+
+  if (isCrawler) {
+    console.log(`[CRAWLER] ${req.method} ${req.path} - User-Agent: ${userAgent.substring(0, 100)}`);
+  }
+
+  next();
+});
+
 // Initialize database and start server
 (async () => {
   try {

@@ -155,6 +155,14 @@ async function processContentForSignedUrls(content) {
 
 export function setupRoutes(app, db) {
 
+  // ========== SEO & CRAWLERS ==========
+
+  // Serve robots.txt to allow all crawlers
+  app.get('/robots.txt', (req, res) => {
+    res.type('text/plain');
+    res.send('User-agent: *\nAllow: /\n');
+  });
+
   // ========== PROJECTS ==========
 
   // Get all projects
